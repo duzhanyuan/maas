@@ -3,21 +3,16 @@
 
 """SUSE Operating System."""
 
-__all__ = [
-    "SUSEOS",
-    ]
+__all__ = ["SUSEOS"]
 
 from provisioningserver.drivers.osystem import (
     BOOT_IMAGE_PURPOSE,
     OperatingSystem,
 )
 
+DISTRO_SERIES_CHOICES = {"opensuse13": "openSUSE 13.1"}
 
-DISTRO_SERIES_CHOICES = {
-    'opensuse13': 'openSUSE 13.1',
-}
-
-DISTRO_SERIES_DEFAULT = 'opensuse13'
+DISTRO_SERIES_DEFAULT = "opensuse13"
 assert DISTRO_SERIES_DEFAULT in DISTRO_SERIES_CHOICES
 
 

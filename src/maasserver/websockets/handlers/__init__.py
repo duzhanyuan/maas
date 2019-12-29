@@ -26,6 +26,7 @@ __all__ = [
     "PodHandler",
     "ResourcePoolHandler",
     "SSHKeyHandler",
+    "SSLKeyHandler",
     "ScriptHandler",
     "ServiceHandler",
     "SpaceHandler",
@@ -33,6 +34,7 @@ __all__ = [
     "SubnetHandler",
     "SwitchHandler",
     "TagHandler",
+    "TokenHandler",
     "UserHandler",
     "VLANHandler",
     "ZoneHandler",
@@ -61,10 +63,12 @@ from maasserver.websockets.handlers.script import ScriptHandler
 from maasserver.websockets.handlers.service import ServiceHandler
 from maasserver.websockets.handlers.space import SpaceHandler
 from maasserver.websockets.handlers.sshkey import SSHKeyHandler
+from maasserver.websockets.handlers.sslkey import SSLKeyHandler
 from maasserver.websockets.handlers.staticroute import StaticRouteHandler
 from maasserver.websockets.handlers.subnet import SubnetHandler
 from maasserver.websockets.handlers.switch import SwitchHandler
 from maasserver.websockets.handlers.tag import TagHandler
+from maasserver.websockets.handlers.token import TokenHandler
 from maasserver.websockets.handlers.user import UserHandler
 from maasserver.websockets.handlers.vlan import VLANHandler
 from maasserver.websockets.handlers.zone import ZoneHandler

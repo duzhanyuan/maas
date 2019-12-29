@@ -5,11 +5,7 @@
 
 from os.path import abspath
 
-from maasserver.djangosettings import (
-    development,
-    import_settings,
-    settings,
-)
+from maasserver.djangosettings import development, import_settings, settings
 
 # We expect the following settings to be overridden. They are mentioned here
 # to silence lint warnings.
@@ -18,8 +14,6 @@ MIDDLEWARE = None
 # Extend base and development settings.
 import_settings(settings)
 import_settings(development)
-
-MEDIA_ROOT = abspath("media/demo")
 
 # Connect to the DNS server. TODO: Use the signals manager instead.
 DNS_CONNECT = True

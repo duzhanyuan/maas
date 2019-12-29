@@ -5,13 +5,13 @@
 
 __all__ = []
 
+from testtools.matchers import Equals
+
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import MAASServerTestCase
-from testtools.matchers import Equals
 
 
 class TestMDNSModel(MAASServerTestCase):
-
     def test_accepts_invalid_hostname(self):
         mdns = factory.make_MDNS(hostname="Living room")
         # Expect no exception.

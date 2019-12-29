@@ -7,24 +7,16 @@ __all__ = []
 
 import http.client
 
-from django.db.models.signals import (
-    post_save,
-    pre_save,
-)
-from django.http import (
-    HttpResponse,
-    HttpResponseRedirect,
-)
+from django.db.models.signals import post_save, pre_save
+from django.http import HttpResponse, HttpResponseRedirect
+from testtools.matchers import Equals
+
 from maasserver.models.node import Node
-from maasserver.testing import (
-    extract_redirect,
-    NoReceivers,
-)
+from maasserver.testing import extract_redirect, NoReceivers
 from maasserver.testing.factory import factory
 from maasserver.testing.orm import reload_objects
 from maasserver.testing.testcase import MAASServerTestCase
 from maasserver.utils.orm import reload_object
-from testtools.matchers import Equals
 
 
 class TestHelpers(MAASServerTestCase):
@@ -32,15 +24,16 @@ class TestHelpers(MAASServerTestCase):
 
     def test_extract_redirect_extracts_redirect_location(self):
         url = factory.make_string()
-        self.assertEqual(
-            url, extract_redirect(HttpResponseRedirect(url)))
+        self.assertEqual(url, extract_redirect(HttpResponseRedirect(url)))
 
     def test_extract_redirect_only_returns_target_path(self):
         url_path = factory.make_string()
         self.assertEqual(
             "/%s" % url_path,
             extract_redirect(
-                HttpResponseRedirect("http://example.com/%s" % url_path)))
+                HttpResponseRedirect("http://example.com/%s" % url_path)
+            ),
+        )
 
     def test_extract_redirect_errors_out_helpfully_if_not_a_redirect(self):
         content = factory.make_string(10).encode("ascii")
@@ -48,9 +41,13 @@ class TestHelpers(MAASServerTestCase):
         try:
             extract_redirect(other_response)
         except ValueError as e:
-            self.assertThat(str(e), Equals(
-                "Not a redirect: http status %d. Content: %s"
-                % (http.client.OK.value, content)))
+            self.assertThat(
+                str(e),
+                Equals(
+                    "Not a redirect: http status %d. Content: %s"
+                    % (http.client.OK.value, content)
+                ),
+            )
 
     def test_reload_object_reloads_object(self):
         test_obj = factory.make_Node()
@@ -65,15 +62,15 @@ class TestHelpers(MAASServerTestCase):
         self.assertIsNone(reload_object(test_obj))
 
     def test_reload_objects_reloads_objects(self):
-        hostnames = ['name1', 'name2', 'name3']
+        hostnames = ["name1", "name2", "name3"]
         objs = [factory.make_Node(hostname=hostname) for hostname in hostnames]
         for obj in objs:
             obj.save()
         hostnames[0] = "different"
         Node.objects.filter(id=objs[0].id).update(hostname=hostnames[0])
         self.assertItemsEqual(
-            hostnames,
-            [obj.hostname for obj in reload_objects(Node, objs)])
+            hostnames, [obj.hostname for obj in reload_objects(Node, objs)]
+        )
 
     def test_reload_objects_omits_deleted_objects(self):
         objs = [factory.make_Node() for counter in range(3)]
@@ -85,7 +82,6 @@ class TestHelpers(MAASServerTestCase):
 
 
 class TestNoReceivers(MAASServerTestCase):
-
     def test_clears_and_restores_signal(self):
         # post_save already has some receivers on it, but make sure.
         self.assertNotEqual(0, len(post_save.receivers))

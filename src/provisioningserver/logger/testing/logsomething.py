@@ -22,9 +22,10 @@ import logging
 import sys
 import warnings
 
-import provisioningserver.logger
 import twisted.logger
 import twisted.python.log
+
+import provisioningserver.logger
 
 
 def main():
@@ -36,13 +37,16 @@ def main():
     # Resets the verbosity at runtime (after initially setting it).
     parser.add_argument("--set-verbosity", type=int, required=False)
     parser.add_argument(
-        "--mode", type=modes.__getitem__, help=" or ".join(
-            mode.name for mode in modes))
+        "--mode",
+        type=modes.__getitem__,
+        help=" or ".join(mode.name for mode in modes),
+    )
     options = parser.parse_args()
 
     # Configure logging. This is the main entry-point.
     provisioningserver.logger.configure(
-        verbosity=options.verbosity, mode=options.mode)
+        verbosity=options.verbosity, mode=options.mode
+    )
 
     if options.set_verbosity is not None:
         provisioningserver.logger.set_verbosity(options.set_verbosity)
@@ -91,5 +95,5 @@ def main():
     sys.stderr.flush()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

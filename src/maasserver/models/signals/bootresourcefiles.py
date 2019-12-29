@@ -3,15 +3,13 @@
 
 """Respond to boot resource file changes."""
 
-__all__ = [
-    "signals",
-]
+__all__ = ["signals"]
 
 from django.db.models.signals import post_delete
+
 from maasserver.models.bootresourcefile import BootResourceFile
 from maasserver.models.largefile import LargeFile
 from maasserver.utils.signals import SignalsManager
-
 
 signals = SignalsManager()
 

@@ -1,9 +1,10 @@
+from twisted.web.resource import Resource
+
 from provisioningserver.prometheus.utils import PrometheusMetrics
-from twisted.web import resource
 
 
-class PrometheusMetricsResource(resource.Resource):
-    """A resource for exposing prometheus metrics. """
+class PrometheusMetricsResource(Resource):
+    """A resource for exposing prometheus metrics."""
 
     isLeaf = True
 
@@ -13,5 +14,6 @@ class PrometheusMetricsResource(resource.Resource):
     def render_GET(self, request):
         content = self.prometheus_metrics.generate_latest()
         if content is None:
-            return resource.NoResource()
+            request.setResponseCode(404)
+            return b""
         return content

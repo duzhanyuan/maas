@@ -3,13 +3,9 @@
 
 """Metadata service application."""
 
-__all__ = [
-    'DefaultMeta',
-    'logger',
-    ]
+__all__ = ["DefaultMeta", "logger"]
 
 import logging
-
 
 logger = logging.getLogger("metadataserver")
 
@@ -21,4 +17,5 @@ class DefaultMeta:
     `Meta` class that defines `app_label`.  Otherwise, South won't recognize
     the model and will fail to generate schema migrations for it.
     """
-    app_label = 'metadataserver'
+
+    app_label = "metadataserver"

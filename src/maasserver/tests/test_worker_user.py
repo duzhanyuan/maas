@@ -6,13 +6,11 @@
 __all__ = []
 
 from django.contrib.auth.models import User
+
 from maasserver.models import UserProfile
 from maasserver.models.user import SYSTEM_USERS
 from maasserver.testing.testcase import MAASServerTestCase
-from maasserver.worker_user import (
-    get_worker_user,
-    user_name,
-)
+from maasserver.worker_user import get_worker_user, user_name
 
 
 class TestNodeGroupUser(MAASServerTestCase):

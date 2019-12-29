@@ -6,6 +6,7 @@
 __all__ = []
 
 from django.http import HttpRequest
+
 from maasserver.enum import ENDPOINT_CHOICES
 from maasserver.forms import SSLKeyForm
 from maasserver.models import Event
@@ -20,10 +21,8 @@ class TestSSLKeyForm(MAASServerTestCase):
 
     def test_creates_audit_event_on_save(self):
         user = factory.make_User()
-        key_string = get_data('data/test_x509_0.pem')
-        form = SSLKeyForm(
-            user=user,
-            data={'key': key_string})
+        key_string = get_data("data/test_x509_0.pem")
+        form = SSLKeyForm(user=user, data={"key": key_string})
         request = HttpRequest()
         request.user = user
         form.save(factory.pick_choice(ENDPOINT_CHOICES), request)

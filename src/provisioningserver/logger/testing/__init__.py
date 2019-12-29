@@ -15,8 +15,9 @@ import random
 import re
 import time
 
-from maastesting.factory import factory
 from twisted.logger import LogLevel
+
+from maastesting.factory import factory
 
 
 def make_event(log_text=None, log_level=None, log_time=None, **other):
@@ -52,7 +53,8 @@ def pick_log_time(noise=float(60 * 60)):
 # Matches lines like: 2016-10-18 14:23:55 namespace: [level] message
 find_log_lines_re = re.compile(
     r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) (.*?): [[](.*)[]] (.*)$",
-    re.MULTILINE)
+    re.MULTILINE,
+)
 
 
 def find_log_lines(text):
@@ -61,6 +63,6 @@ def find_log_lines(text):
     Checks for well-formed date/times but throws them away.
     """
     return [
-        (ns, level, line) for (ts, ns, level, line) in
-        find_log_lines_re.findall(text)
+        (ns, level, line)
+        for (ts, ns, level, line) in find_log_lines_re.findall(text)
     ]

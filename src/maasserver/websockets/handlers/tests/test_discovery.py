@@ -5,11 +5,11 @@
 
 __all__ = []
 
-from datetime import (
-    datetime,
-    timedelta,
-)
+from datetime import datetime, timedelta
 import time
+
+from testtools import ExpectedException
+from testtools.matchers import Equals
 
 from maasserver.models import MDNS
 from maasserver.models.discovery import Discovery
@@ -20,12 +20,9 @@ from maasserver.websockets.base import (
     HandlerPermissionError,
 )
 from maasserver.websockets.handlers.discovery import DiscoveryHandler
-from testtools import ExpectedException
-from testtools.matchers import Equals
 
 
 class TestDiscoveryHandler(MAASServerTestCase):
-
     def dehydrate_discovery(self, discovery: Discovery, for_list=False):
         data = {
             "discovery_id": discovery.discovery_id,
@@ -49,9 +46,10 @@ class TestDiscoveryHandler(MAASServerTestCase):
             "vid": discovery.vid,
             "vlan": discovery.vlan_id,
             "first_seen": str(
-                time.mktime(discovery.first_seen.timetuple()) +
-                discovery.first_seen.microsecond / 1e6),
-            "last_seen": dehydrate_datetime(discovery.last_seen)
+                time.mktime(discovery.first_seen.timetuple())
+                + discovery.first_seen.microsecond / 1e6
+            ),
+            "last_seen": dehydrate_datetime(discovery.last_seen),
         }
         return data
 
@@ -61,7 +59,8 @@ class TestDiscoveryHandler(MAASServerTestCase):
         discovery = factory.make_Discovery()
         self.assertEqual(
             self.dehydrate_discovery(discovery),
-            handler.get({"discovery_id": discovery.discovery_id}))
+            handler.get({"discovery_id": discovery.discovery_id}),
+        )
 
     def test_list(self):
         user = factory.make_User()
@@ -71,10 +70,8 @@ class TestDiscoveryHandler(MAASServerTestCase):
         expected_discoveries = [
             self.dehydrate_discovery(discovery, for_list=True)
             for discovery in Discovery.objects.all()
-            ]
-        self.assertItemsEqual(
-            expected_discoveries,
-            handler.list({}))
+        ]
+        self.assertItemsEqual(expected_discoveries, handler.list({}))
 
     def test_list_orders_by_creation_date(self):
         user = factory.make_User()
@@ -90,10 +87,8 @@ class TestDiscoveryHandler(MAASServerTestCase):
         expected_discoveries = [
             self.dehydrate_discovery(discovery, for_list=True)
             for discovery in [d0, d1, d2, d3, d4]
-            ]
-        self.assertEquals(
-            expected_discoveries,
-            handler.list({}))
+        ]
+        self.assertEquals(expected_discoveries, handler.list({}))
 
     def test_list_starts_after_first_seen(self):
         user = factory.make_User()
@@ -106,20 +101,20 @@ class TestDiscoveryHandler(MAASServerTestCase):
         factory.make_Discovery(created=(now + timedelta(days=2)))
         first_seen = now + timedelta(days=2)
         first_seen = str(
-            time.mktime(first_seen.timetuple()) + first_seen.microsecond / 1e6)
+            time.mktime(first_seen.timetuple()) + first_seen.microsecond / 1e6
+        )
         # Test for the expected order independent of how the database
         # decided to sort.
         expected_discoveries = [
             self.dehydrate_discovery(discovery, for_list=True)
             for discovery in [d3, d4]
-            ]
+        ]
         self.assertEquals(
-            expected_discoveries,
-            handler.list({"start": first_seen}))
+            expected_discoveries, handler.list({"start": first_seen})
+        )
 
 
 class TestDiscoveryHandlerClear(MAASServerTestCase):
-
     def test__raises_if_not_admin(self):
         user = factory.make_User()
         handler = DiscoveryHandler(user, {}, None)
@@ -147,7 +142,7 @@ class TestDiscoveryHandlerClear(MAASServerTestCase):
         num_mdns = MDNS.objects.count()
         self.assertThat(num_discoveries, Equals(1))
         self.assertThat(num_mdns, Equals(1))
-        handler.clear({'mdns': True})
+        handler.clear({"mdns": True})
         num_discoveries = Discovery.objects.count()
         num_mdns = MDNS.objects.count()
         self.assertThat(num_discoveries, Equals(1))
@@ -155,7 +150,6 @@ class TestDiscoveryHandlerClear(MAASServerTestCase):
 
 
 class TestDiscoveryHandlerDeleteByMACAndIP(MAASServerTestCase):
-
     def test__raises_if_not_admin(self):
         user = factory.make_User()
         handler = DiscoveryHandler(user, {}, None)
@@ -164,7 +158,8 @@ class TestDiscoveryHandlerDeleteByMACAndIP(MAASServerTestCase):
         self.assertThat(num_discoveries, Equals(1))
         with ExpectedException(HandlerPermissionError):
             handler.delete_by_mac_and_ip(
-                dict(ip=disco.ip, mac=disco.mac_address))
+                dict(ip=disco.ip, mac=disco.mac_address)
+            )
 
     def test__raises_if_missing_ip(self):
         user = factory.make_User()
@@ -191,7 +186,8 @@ class TestDiscoveryHandlerDeleteByMACAndIP(MAASServerTestCase):
         num_discoveries = Discovery.objects.count()
         self.assertThat(num_discoveries, Equals(1))
         result = handler.delete_by_mac_and_ip(
-            dict(ip=disco.ip, mac=disco.mac_address))
+            dict(ip=disco.ip, mac=disco.mac_address)
+        )
         num_discoveries = Discovery.objects.count()
         self.assertThat(num_discoveries, Equals(0))
         self.assertThat(result, Equals(1))

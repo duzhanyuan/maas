@@ -3,10 +3,7 @@
 
 """API handlers: `Zone`."""
 
-__all__ = [
-    'ZoneHandler',
-    'ZonesHandler',
-]
+__all__ = ["ZoneHandler", "ZonesHandler"]
 
 from maasserver.api.support import (
     admin_method,
@@ -17,16 +14,12 @@ from maasserver.api.support import (
 from maasserver.forms import ZoneForm
 from maasserver.models import Zone
 
-
-DISPLAYED_ZONE_FIELDS = (
-    'id',
-    'name',
-    'description',
-)
+DISPLAYED_ZONE_FIELDS = ("id", "name", "description")
 
 
 class AnonZoneHandler(AnonymousOperationsHandler):
     """Anonymous access to zone."""
+
     read = create = update = delete = None
     model = Zone
     fields = DISPLAYED_ZONE_FIELDS
@@ -46,11 +39,11 @@ class ZoneHandler(ModelOperationsHandler):
     """
 
     model = Zone
-    id_field = 'name'
+    id_field = "name"
     fields = DISPLAYED_ZONE_FIELDS
     model_form = ZoneForm
-    handler_url_name = 'zone_handler'
-    api_doc_section_name = 'Zone'
+    handler_url_name = "zone_handler"
+    api_doc_section_name = "Zone"
 
     def read(self, request, name):
         """@description Returns a named zone.
@@ -132,8 +125,8 @@ class ZonesHandler(ModelCollectionOperationsHandler):
     model_manager = Zone.objects
     fields = DISPLAYED_ZONE_FIELDS
     model_form = ZoneForm
-    handler_url_name = 'zones_handler'
-    api_doc_section_name = 'Zones'
+    handler_url_name = "zones_handler"
+    api_doc_section_name = "Zones"
 
     @admin_method
     def create(self, request):

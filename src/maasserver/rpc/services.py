@@ -3,9 +3,7 @@
 
 """RPC helpers relating to services."""
 
-__all__ = [
-    "update_services",
-]
+__all__ = ["update_services"]
 
 from logging import getLogger
 
@@ -14,7 +12,6 @@ from maasserver.models.service import Service
 from maasserver.utils.orm import transactional
 from provisioningserver.rpc.exceptions import NoSuchCluster
 from provisioningserver.utils.twisted import synchronous
-
 
 log = getLogger(__name__)
 
@@ -41,12 +38,19 @@ def update_services(system_id, services):
     for service in services:
         try:
             Service.objects.update_service_for(
-                rack, service['name'], service['status'],
-                service['status_info'])
+                rack,
+                service["name"],
+                service["status"],
+                service["status_info"],
+            )
         except Service.DoesNotExist:
             log.error(
                 "Rack %s reported status for %r but this is not a recognised "
-                "service (status=%r, info=%r).", rack.system_id,
-                service['name'], service['status'], service['status_info'])
+                "service (status=%r, info=%r).",
+                rack.system_id,
+                service["name"],
+                service["status"],
+                service["status_info"],
+            )
 
     return {}

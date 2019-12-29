@@ -8,19 +8,13 @@ __all__ = []
 from argparse import ArgumentParser
 import io
 
+from testtools.matchers import Contains, FileContains
+
 from maastesting.testcase import MAASTestCase
-from provisioningserver.dns.commands.get_named_conf import (
-    add_arguments,
-    run,
-)
-from testtools.matchers import (
-    Contains,
-    FileContains,
-)
+from provisioningserver.dns.commands.get_named_conf import add_arguments, run
 
 
 class TestGetNamedConfCommand(MAASTestCase):
-
     def setUp(self):
         super().setUp()
         self.output = io.StringIO()
@@ -40,8 +34,5 @@ class TestGetNamedConfCommand(MAASTestCase):
 
     def test_get_named_conf_appends_to_config_file(self):
         file_path = self.make_file()
-        self.run_command('--edit', '--config-path', file_path)
-        self.assertThat(
-            file_path,
-            FileContains(
-                matcher=Contains('include "')))
+        self.run_command("--edit", "--config-path", file_path)
+        self.assertThat(file_path, FileContains(matcher=Contains('include "')))

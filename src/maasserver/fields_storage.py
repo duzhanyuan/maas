@@ -3,19 +3,15 @@
 
 """Fields for storage API."""
 
-__all__ = [
-    ]
+__all__ = []
 
 from math import ceil
 import re
 
 from django import forms
-from django.core.validators import (
-    MaxValueValidator,
-    MinValueValidator,
-)
-from maasserver.utils.converters import machine_readable_bytes
+from django.core.validators import MaxValueValidator, MinValueValidator
 
+from maasserver.utils.converters import machine_readable_bytes
 
 PERCENTAGE_REGEX = r"\d+(\.\d*)?%"
 BYTES_REGEX = r"-?[0-9]+([KkMmGgTtPpEe]{1})?"
@@ -42,8 +38,7 @@ class BytesOrPercentageField(forms.RegexField):
         self.min_value = kwargs.pop("min_value", None)
         self.max_value = kwargs.pop("max_value", None)
         regex = r"^(%s|%s)$" % (PERCENTAGE_REGEX, BYTES_REGEX)
-        super(BytesOrPercentageField, self).__init__(
-            regex, *args, **kwargs)
+        super(BytesOrPercentageField, self).__init__(regex, *args, **kwargs)
 
     def to_python(self, value):
         if value is not None:

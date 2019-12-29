@@ -8,6 +8,8 @@ __all__ = []
 import random
 
 from django.core.exceptions import ValidationError
+from testtools import ExpectedException
+
 from maasserver.models.regioncontrollerprocess import RegionControllerProcess
 from maasserver.models.regioncontrollerprocessendpoint import (
     RegionControllerProcessEndpoint,
@@ -15,7 +17,6 @@ from maasserver.models.regioncontrollerprocessendpoint import (
 from maasserver.models.regionrackrpcconnection import RegionRackRPCConnection
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import MAASServerTestCase
-from testtools import ExpectedException
 
 
 class TestRegionRackRPCConnection(MAASServerTestCase):
@@ -25,14 +26,18 @@ class TestRegionRackRPCConnection(MAASServerTestCase):
         region = factory.make_RegionController()
         pid = random.randint(1, 5000)
         process = RegionControllerProcess.objects.create(
-            pid=pid, region=region)
+            pid=pid, region=region
+        )
         address = factory.make_ip_address()
         port = random.randint(1, 5000)
         endpoint = RegionControllerProcessEndpoint.objects.create(
-            process=process, address=address, port=port)
+            process=process, address=address, port=port
+        )
         rack_controller = factory.make_RackController()
         RegionRackRPCConnection.objects.create(
-            endpoint=endpoint, rack_controller=rack_controller)
+            endpoint=endpoint, rack_controller=rack_controller
+        )
         with ExpectedException(ValidationError):
             RegionRackRPCConnection.objects.create(
-                endpoint=endpoint, rack_controller=rack_controller)
+                endpoint=endpoint, rack_controller=rack_controller
+            )

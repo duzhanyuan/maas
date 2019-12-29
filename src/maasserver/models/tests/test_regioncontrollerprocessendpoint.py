@@ -8,13 +8,14 @@ __all__ = []
 import random
 
 from django.core.exceptions import ValidationError
+from testtools import ExpectedException
+
 from maasserver.models.regioncontrollerprocess import RegionControllerProcess
 from maasserver.models.regioncontrollerprocessendpoint import (
     RegionControllerProcessEndpoint,
 )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import MAASServerTestCase
-from testtools import ExpectedException
 
 
 class TestRegionControllerProcessEndpoint(MAASServerTestCase):
@@ -24,11 +25,14 @@ class TestRegionControllerProcessEndpoint(MAASServerTestCase):
         region = factory.make_RegionController()
         pid = random.randint(1, 5000)
         process = RegionControllerProcess.objects.create(
-            pid=pid, region=region)
+            pid=pid, region=region
+        )
         address = factory.make_ip_address()
         port = random.randint(1, 5000)
         RegionControllerProcessEndpoint.objects.create(
-            process=process, address=address, port=port)
+            process=process, address=address, port=port
+        )
         with ExpectedException(ValidationError):
             RegionControllerProcessEndpoint.objects.create(
-                process=process, address=address, port=port)
+                process=process, address=address, port=port
+            )

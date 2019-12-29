@@ -3,9 +3,7 @@
 
 """UserProfile model."""
 
-__all__ = [
-    'UserProfile',
-    ]
+__all__ = ["UserProfile"]
 
 
 from django.contrib.auth.models import User
@@ -18,10 +16,11 @@ from django.db.models import (
     OneToOneField,
 )
 from django.shortcuts import get_object_or_404
+from piston3.models import Token
+
 from maasserver import DefaultMeta
 from maasserver.exceptions import CannotDeleteUserException
 from maasserver.models.cleansave import CleanSave
-from piston3.models import Token
 
 
 class UserProfileManager(Manager):
@@ -41,7 +40,7 @@ class UserProfileManager(Manager):
            en/dev/ref/models/querysets/
 
         """
-        user_ids = UserProfile.objects.all().values_list('user', flat=True)
+        user_ids = UserProfile.objects.all().values_list("user", flat=True)
         return User.objects.filter(id__in=user_ids)
 
 
@@ -73,19 +72,22 @@ class UserProfile(CleanSave, Model):
     def delete(self):
         # check owned resources
         owned_resources = [
-            ('staticipaddress', 'static IP address(es)'),
-            ('iprange', 'IP range(s)'),
-            ('node', 'node(s)')]
+            ("staticipaddress", "static IP address(es)"),
+            ("iprange", "IP range(s)"),
+            ("node", "node(s)"),
+        ]
         messages = []
         for attr, title in owned_resources:
-            count = getattr(self.user, attr + '_set').count()
+            count = getattr(self.user, attr + "_set").count()
             if count:
-                messages.append('{} {}'.format(count, title))
+                messages.append("{} {}".format(count, title))
 
         if messages:
             raise CannotDeleteUserException(
-                'User {} cannot be deleted: {} are still allocated'.format(
-                    self.user.username, ', '.join(messages)))
+                "User {} cannot be deleted: {} are still allocated".format(
+                    self.user.username, ", ".join(messages)
+                )
+            )
 
         if self.user.filestorage_set.exists():
             self.user.filestorage_set.all().delete()
@@ -145,7 +147,8 @@ class UserProfile(CleanSave, Model):
 
         """
         token = get_object_or_404(
-            Token, user=self.user, token_type=Token.ACCESS, key=token_key)
+            Token, user=self.user, token_type=Token.ACCESS, key=token_key
+        )
         token.consumer.delete()
         token.delete()
 
@@ -159,7 +162,8 @@ class UserProfile(CleanSave, Model):
         :raises: `django.http.Http404`
         """
         token = get_object_or_404(
-            Token, user=self.user, token_type=Token.ACCESS, key=token_key)
+            Token, user=self.user, token_type=Token.ACCESS, key=token_key
+        )
         token.consumer.name = consumer_name
         token.consumer.save()
         token.save()

@@ -3,18 +3,16 @@
 
 """Signals called when config values changed."""
 
-__all__ = [
-    "signals",
-]
+__all__ = ["signals"]
 
 from maasserver.utils.signals import SignalsManager
-
 
 signals = SignalsManager()
 
 
 def dns_kms_setting_changed(sender, instance, created, **kwargs):
     from maasserver.models.domain import dns_kms_setting_changed
+
     dns_kms_setting_changed()
 
 

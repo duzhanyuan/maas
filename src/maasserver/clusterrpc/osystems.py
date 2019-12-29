@@ -13,12 +13,11 @@ from collections import defaultdict
 from functools import partial
 from urllib.parse import urlparse
 
+from twisted.python.failure import Failure
+
 from maasserver.enum import BOOT_RESOURCE_TYPE
 from maasserver.models import BootResource
-from maasserver.rpc import (
-    getAllClients,
-    getClientFor,
-)
+from maasserver.rpc import getAllClients, getClientFor
 from maasserver.utils import asynchronous
 from maasserver.utils.orm import get_one
 from provisioningserver.rpc.cluster import (
@@ -27,7 +26,6 @@ from provisioningserver.rpc.cluster import (
     ValidateLicenseKey,
 )
 from provisioningserver.utils.twisted import synchronous
-from twisted.python.failure import Failure
 
 
 def get_uploaded_resource_with_name(resources, name):
@@ -39,10 +37,12 @@ def get_uploaded_resource_with_name(resources, name):
 def fix_custom_osystem_release_titles(osystem):
     """Fix all release titles for the custom OS."""
     custom_resources = BootResource.objects.filter(
-        rtype=BOOT_RESOURCE_TYPE.UPLOADED)
+        rtype=BOOT_RESOURCE_TYPE.UPLOADED
+    )
     for release in osystem["releases"]:
         resource = get_uploaded_resource_with_name(
-            custom_resources, release["name"])
+            custom_resources, release["name"]
+        )
         if resource is not None and "title" in resource.extra:
             release["title"] = resource.extra["title"]
     return osystem
@@ -68,8 +68,8 @@ def gen_all_known_operating_systems():
     """
     seen = defaultdict(list)
     responses = asynchronous.gather(
-        partial(client, ListOperatingSystems)
-        for client in getAllClients())
+        partial(client, ListOperatingSystems) for client in getAllClients()
+    )
     for response in suppress_failures(responses):
         for osystem in response["osystems"]:
             name = osystem["name"]
@@ -101,10 +101,16 @@ def get_preseed_data(preseed_type, node, token, metadata_url):
     """
     client = getClientFor(node.get_boot_rack_controller().system_id)
     call = client(
-        GetPreseedData, osystem=node.get_osystem(), preseed_type=preseed_type,
-        node_system_id=node.system_id, node_hostname=node.hostname,
-        consumer_key=token.consumer.key, token_key=token.key,
-        token_secret=token.secret, metadata_url=urlparse(metadata_url))
+        GetPreseedData,
+        osystem=node.get_osystem(),
+        preseed_type=preseed_type,
+        node_system_id=node.system_id,
+        node_hostname=node.hostname,
+        consumer_key=token.consumer.key,
+        token_key=token.key,
+        token_secret=token.secret,
+        metadata_url=urlparse(metadata_url),
+    )
     return call.wait(30).get("data")
 
 
@@ -123,9 +129,14 @@ def validate_license_key(osystem, release, key):
     """
     responses = asynchronous.gather(
         partial(
-            client, ValidateLicenseKey,
-            osystem=osystem, release=release, key=key)
-        for client in getAllClients())
+            client,
+            ValidateLicenseKey,
+            osystem=osystem,
+            release=release,
+            key=key,
+        )
+        for client in getAllClients()
+    )
 
     # Only one cluster needs to say the license key is valid, for it
     # to considered valid. Must go through all responses so they are all

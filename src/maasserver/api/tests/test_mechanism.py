@@ -23,9 +23,8 @@ class TestOperationDecorator(MAASTestCase):
 
     def test_can_passexported_as(self):
         # Test that passing the optional "exported_as" works as expected.
-        randomexported_name = factory.make_name("exportedas", sep='')
-        decorate = operation(
-            idempotent=False, exported_as=randomexported_name)
+        randomexported_name = factory.make_name("exportedas", sep="")
+        decorate = operation(idempotent=False, exported_as=randomexported_name)
         decorated = decorate(lambda: None)
         self.assertEqual(randomexported_name, decorated.export[1])
 
@@ -43,15 +42,19 @@ class TestOperationDecorator(MAASTestCase):
     def test_idempotent_uses_GET(self):
         # If a function is declared as idempotent the export signature
         # includes the HTTP GET method.
-        func = lambda: None
+        def func():
+            pass
+
         self.assertEqual(
-            ("GET", func.__name__),
-            operation(idempotent=True)(func).export)
+            ("GET", func.__name__), operation(idempotent=True)(func).export
+        )
 
     def test_non_idempotent_uses_POST(self):
         # If a function is declared as not idempotent the export signature
         # includes the HTTP POST method.
-        func = lambda: None
+        def func():
+            pass
+
         self.assertEqual(
-            ("POST", func.__name__),
-            operation(idempotent=False)(func).export)
+            ("POST", func.__name__), operation(idempotent=False)(func).export
+        )

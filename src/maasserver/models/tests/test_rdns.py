@@ -5,28 +5,20 @@
 
 __all__ = []
 
-from datetime import (
-    datetime,
-    timedelta,
-)
+from datetime import datetime, timedelta
 
 from django.core.exceptions import ValidationError
+from testtools import ExpectedException
+from testtools.matchers import Equals, GreaterThan, Is, Not
+
 from maasserver.models import RDNS
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import MAASServerTestCase
 from maastesting.matchers import DocTestMatches
 from maastesting.twisted import TwistedLoggerFixture
-from testtools import ExpectedException
-from testtools.matchers import (
-    Equals,
-    GreaterThan,
-    Is,
-    Not,
-)
 
 
 class TestRDNSModel(MAASServerTestCase):
-
     def test_accepts_invalid_hostname(self):
         rdns = factory.make_RDNS(hostname="Game room")
         # Expect no exception. We don't trust reverse DNS to always return
@@ -35,7 +27,6 @@ class TestRDNSModel(MAASServerTestCase):
 
 
 class TestRDNSManager(MAASServerTestCase):
-
     def setUp(self):
         super().setUp()
 
@@ -78,8 +69,9 @@ class TestRDNSManager(MAASServerTestCase):
         self.assertThat(result.hostname, Equals(hostname))
         self.assertThat(result.hostnames, Equals([hostname]))
         self.assertThat(
-            logger.output, DocTestMatches(
-                "New reverse DNS entry...resolves to..."))
+            logger.output,
+            DocTestMatches("New reverse DNS entry...resolves to..."),
+        )
 
     def test__set_current_entry_updates_existing_hostname_with_log(self):
         region = factory.make_RegionController()
@@ -94,8 +86,9 @@ class TestRDNSManager(MAASServerTestCase):
         self.assertThat(result.ip, Equals(ip))
         self.assertThat(result.hostname, Equals(hostname))
         self.assertThat(
-            logger.output, DocTestMatches(
-                "Reverse DNS entry updated...resolves to..."))
+            logger.output,
+            DocTestMatches("Reverse DNS entry updated...resolves to..."),
+        )
 
     def test__set_current_entry_updates_existing_hostnames(self):
         region = factory.make_RegionController()
@@ -127,7 +120,8 @@ class TestRDNSManager(MAASServerTestCase):
         region = factory.make_RegionController()
         with ExpectedException(AssertionError):
             RDNS.objects.set_current_entry(
-                factory.make_ip_address(), [], region)
+                factory.make_ip_address(), [], region
+            )
 
     def test__delete_current_entry_ignores_missing_entries(self):
         region = factory.make_RegionController()
@@ -144,5 +138,6 @@ class TestRDNSManager(MAASServerTestCase):
         with TwistedLoggerFixture() as logger:
             RDNS.objects.delete_current_entry(ip, region)
         self.assertThat(
-            logger.output, DocTestMatches(
-                "Deleted reverse DNS entry...resolved to..."))
+            logger.output,
+            DocTestMatches("Deleted reverse DNS entry...resolved to..."),
+        )

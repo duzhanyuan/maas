@@ -3,13 +3,15 @@
 
 """Syslog service for the region controller."""
 
-__all__ = [
-    "RegionSyslogService",
-]
+__all__ = ["RegionSyslogService"]
 
 from datetime import timedelta
 
 import attr
+from twisted.application.internet import TimerService
+from twisted.internet.defer import maybeDeferred
+from twisted.internet.threads import deferToThread
+
 from maasserver.models.config import Config
 from maasserver.models.node import RegionController
 from maasserver.routablepairs import get_routable_address_map
@@ -18,14 +20,7 @@ from maasserver.utils.orm import transactional
 from maasserver.utils.threads import deferToDatabase
 from provisioningserver.logger import LegacyLogger
 from provisioningserver.syslog.config import write_config
-from provisioningserver.utils.twisted import (
-    callOut,
-    synchronous,
-)
-from twisted.application.internet import TimerService
-from twisted.internet.defer import maybeDeferred
-from twisted.internet.threads import deferToThread
-
+from provisioningserver.utils.twisted import callOut, synchronous
 
 log = LegacyLogger()
 
@@ -79,7 +74,7 @@ class RegionSyslogService(TimerService):
                 # Only a region controller, no need to forward logs.
                 peers = frozenset()
 
-        port = Config.objects.get_config('maas_syslog_port')
+        port = Config.objects.get_config("maas_syslog_port")
         return _Configuration(port, peers)
 
     def _maybeApplyConfiguration(self, configuration):
@@ -101,7 +96,7 @@ class RegionSyslogService(TimerService):
         if addr.is_ipv4_mapped():
             return str(addr.ipv4())
         elif addr.version == 6:
-            return '[%s]' % addr
+            return "[%s]" % addr
         else:
             return str(addr)
 
@@ -112,15 +107,15 @@ class RegionSyslogService(TimerService):
             `_getConfiguration`.
         """
         d = deferToThread(
-            write_config, True, [
-                {
-                    'ip': self._formatIP(ip),
-                    'name': hostname,
-                }
+            write_config,
+            True,
+            [
+                {"ip": self._formatIP(ip), "name": hostname}
                 for hostname, ip in configuration.peers
-            ], port=configuration.port)
-        d.addCallback(
-            callOut, service_monitor.restartService, "syslog_region")
+            ],
+            port=configuration.port,
+        )
+        d.addCallback(callOut, service_monitor.restartService, "syslog_region")
         return d
 
     def _configurationApplied(self, configuration):

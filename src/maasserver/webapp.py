@@ -3,16 +3,26 @@
 
 """The MAAS Web Application."""
 
-__all__ = [
-    "WebApplicationService",
-]
+__all__ = ["WebApplicationService"]
 
 import copy
 from functools import partial
+import os
 import re
 import socket
 
 from django.conf import settings
+from twisted.application.internet import StreamServerEndpointService
+from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks
+from twisted.internet.endpoints import AdoptedStreamServerEndpoint
+from twisted.web.error import UnsupportedMethod
+from twisted.web.resource import NoResource, Resource
+from twisted.web.server import Request, Site
+from twisted.web.static import File
+from twisted.web.util import Redirect
+from twisted.web.wsgi import WSGIResource
+
 from maasserver import concurrency
 from maasserver.utils.threads import deferToDatabase
 from maasserver.utils.views import WebApplicationHandler
@@ -28,23 +38,6 @@ from provisioningserver.utils.twisted import (
     reducedWebLogFormatter,
     ThreadPoolLimiter,
 )
-from twisted.application.internet import StreamServerEndpointService
-from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks
-from twisted.internet.endpoints import AdoptedStreamServerEndpoint
-from twisted.web.error import UnsupportedMethod
-from twisted.web.resource import (
-    NoResource,
-    Resource,
-)
-from twisted.web.server import (
-    Request,
-    Site,
-)
-from twisted.web.static import File
-from twisted.web.util import Redirect
-from twisted.web.wsgi import WSGIResource
-
 
 log = LegacyLogger()
 
@@ -57,10 +50,11 @@ class CleanPathRequest(Request, object):
 
     def requestReceived(self, command, path, version):
         path, sep, args = path.partition(b"?")
-        path = re.sub(rb'/+', b'/', path)
+        path = re.sub(rb"/+", b"/", path)
         path = b"".join([path, sep, args])
         return super(CleanPathRequest, self).requestReceived(
-            command, path, version)
+            command, path, version
+        )
 
 
 class OverlaySite(Site):
@@ -78,6 +72,7 @@ class OverlaySite(Site):
         If this site cannot return a valid resource to request is passed to
         the underlay site to resolve the request.
         """
+
         def call_underlay(request):
             # Reset the paths and forward to the underlay site.
             request.prepath = []
@@ -102,7 +97,7 @@ class OverlaySite(Site):
         if isinstance(result, NoResource) and self.underlay is not None:
             return call_underlay(request)
         else:
-            if hasattr(result.render, '__overlay_wrapped__'):
+            if hasattr(result.render, "__overlay_wrapped__"):
                 # Render method for the resulting resource has already been
                 # wrapped, so don't wrap it again.
                 return result
@@ -148,6 +143,36 @@ class ResourceOverlay(Resource, object):
         return self.basis.render(request)
 
 
+class DefaultFile(File):
+    """
+    A `File` resource that always returns the same file no matter the
+    path.
+    """
+
+    def getChild(self, path, request):
+        return self
+
+
+class NoListingFile(File):
+    """
+    A `File` resource that returns childNotFound instead of listing the directory contents.
+    """
+
+    def directoryListing(self):
+        return self.childNotFound
+
+
+class DefaultFallbackFile(NoListingFile):
+    """
+    A `NoListingFile` that returns the fallback file when a path is not found.
+    """
+
+    def __init__(self, *args, **kwargs):
+        fallback = kwargs.pop("fallback", "index.html")
+        super().__init__(*args, **kwargs)
+        self.childNotFound = DefaultFile(self.child(fallback).path)
+
+
 class WebApplicationService(StreamServerEndpointService):
     """Service encapsulating the Django web application.
 
@@ -167,14 +192,16 @@ class WebApplicationService(StreamServerEndpointService):
         # the root resource. This must be seperated because Django must be
         # start from inside a thread with database access.
         self.site = OverlaySite(
-            Resource(), logFormatter=reducedWebLogFormatter, timeout=None)
+            Resource(), logFormatter=reducedWebLogFormatter, timeout=None
+        )
         self.site.requestFactory = CleanPathRequest
         # `endpoint` is set in `privilegedStartService`, at this point the
         # `endpoint` is None.
         super(WebApplicationService, self).__init__(None, self.site)
         self.websocket = WebSocketFactory(listener)
         self.threadpool = ThreadPoolLimiter(
-            reactor.threadpoolForDatabase, concurrency.webapp)
+            reactor.threadpoolForDatabase, concurrency.webapp
+        )
         self.status_worker = status_worker
 
     def prepareApplication(self):
@@ -199,26 +226,50 @@ class WebApplicationService(StreamServerEndpointService):
         """
         # Setup resources to process paths that twisted handles.
         metadata = Resource()
-        metadata.putChild(b'status', StatusHandlerResource(self.status_worker))
+        metadata.putChild(b"status", StatusHandlerResource(self.status_worker))
 
         maas = Resource()
-        maas.putChild(b'metadata', metadata)
-        maas.putChild(b'static', File(settings.STATIC_ROOT))
+        maas.putChild(b"metadata", metadata)
         maas.putChild(
-            b'ws',
-            WebSocketsResource(lookupProtocolForFactory(self.websocket)))
+            b"ws", WebSocketsResource(lookupProtocolForFactory(self.websocket))
+        )
+
+        # Setup static resources
+        # /MAAS/r/{path} are all resolved by the new MAAS UI section of code.
+        # If any paths do not match then its routed to index.html in the new
+        # UI code as it uses HTML 5 routing.
+        maas.putChild(
+            b"r", DefaultFallbackFile(os.path.join(settings.STATIC_ROOT, "ui"))
+        )
+        # /MAAS/{path} are resolved by the old MAAS UI section of code, but
+        # only for the specific content in the legacy folder as it overlays
+        # all other URL's under the /MAAS prefix.
+        maas.putChild(
+            b"assets",
+            NoListingFile(
+                os.path.join(settings.STATIC_ROOT, "legacy", "assets")
+            ),
+        )
+        maas.putChild(
+            b"",
+            DefaultFile(
+                os.path.join(settings.STATIC_ROOT, "legacy", "index.html")
+            ),
+        )
 
         root = Resource()
-        root.putChild(b'', Redirect(b"MAAS/"))
-        root.putChild(b'MAAS', maas)
+        root.putChild(b"", Redirect(b"MAAS/"))
+        root.putChild(b"MAAS", maas)
 
         # Setup the resources to process paths that django handles.
         underlay_maas = ResourceOverlay(
-            WSGIResource(reactor, self.threadpool, application))
+            WSGIResource(reactor, self.threadpool, application)
+        )
         underlay_root = Resource()
-        underlay_root.putChild(b'MAAS', underlay_maas)
+        underlay_root.putChild(b"MAAS", underlay_maas)
         underlay_site = Site(
-            underlay_root, logFormatter=reducedWebLogFormatter)
+            underlay_root, logFormatter=reducedWebLogFormatter
+        )
         underlay_site.requestFactory = CleanPathRequest
 
         # Setup the main resource as the twisted handler and the underlay
@@ -243,13 +294,12 @@ class WebApplicationService(StreamServerEndpointService):
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         # N.B, using the IPv6 INADDR_ANY means that getpeername() returns
         # something like: ('::ffff:192.168.133.32', 40588, 0, 0)
-        s.bind(('::', self.port))
+        s.bind(("::", self.port))
         # Use a backlog of 50, which seems to be fairly common.
         s.listen(50)
 
         # Adopt this socket into Twisted's reactor setting the endpoint.
-        endpoint = AdoptedStreamServerEndpoint(
-            reactor, s.fileno(), s.family)
+        endpoint = AdoptedStreamServerEndpoint(reactor, s.fileno(), s.family)
         endpoint.port = self.port  # Make it easy to get the port number.
         endpoint.socket = s  # Prevent garbage collection.
         return endpoint
@@ -279,7 +329,6 @@ class WebApplicationService(StreamServerEndpointService):
 
     @asynchronous(timeout=30)
     def stopService(self):
-
         def _cleanup(_):
             self.starting = False
 

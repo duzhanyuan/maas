@@ -2,21 +2,19 @@
 
 import argparse
 import ast
-from collections import Iterable
+from collections.abc import Iterable
 from glob import iglob
-from itertools import (
-    chain,
-    islice,
-)
+from itertools import chain, islice
 import multiprocessing
 from pathlib import Path
 import re
 import sys
 import tokenize
 
+from python_standard_libs import python_standard_libs
+
 # Get a list of all standard library modules.
 sys.path.insert(0, Path(__file__).parent.absolute())
-from python_standard_libs import python_standard_libs
 
 
 def flatten(*things):
@@ -68,8 +66,9 @@ class Pattern:
 
     def compile(self):
         self._matcher = re.compile(
-            r"(%s)\Z(?ms)" % "|".join(chain.from_iterable(
-                map(self._compile_pattern, self.patterns))))
+            r"(%s)\Z" % "|".join(chain.from_iterable(
+                map(self._compile_pattern, self.patterns))),
+            re.MULTILINE | re.DOTALL)
 
     def match(self, name):
         return self._matcher.match(name) is not None
@@ -149,7 +148,7 @@ class Rule:
 
 # Common module patterns.
 StandardLibraries = Pattern(
-    map("{0}|{0}.**".format, python_standard_libs),
+    map("{0}|{0}.**".format, python_standard_libs + ["pkg_resources"])
 )
 TestingLibraries = Pattern(
     "distro_info.UbuntuDistroInfo",
@@ -161,7 +160,6 @@ TestingLibraries = Pattern(
     "maastesting|maastesting.**",
     "nose|nose.**",
     "postgresfixture|postgresfixture.**",
-    "selenium|selenium.**",
     "subunit|subunit.**",
     "testresources|testresources.**",
     "testscenarios|testscenarios.**",
@@ -236,18 +234,15 @@ RackControllerRule = Rule(
 )
 
 
-RegionMigrationsSouth = files(
-    "src/maasserver/migrations/south/**/*.py",
-    "src/metadataserver/migrations/south/**/*.py")
-RegionMigrationsBuiltin = files(
-    "src/maasserver/migrations/builtin/**/*.py",
-    "src/metadataserver/migrations/builtin/**/*.py")
+RegionMigrations = files(
+    "src/maasserver/migrations/**/*.py",
+    "src/metadataserver/migrations/*.py")
 RegionUserDataSnippets = files(
     "src/metadataserver/user_data/templates/"
     "snippets/**/*.py")
 RegionController = (
     files("src/maasserver/**/*.py", "src/metadataserver/**/*.py") -
-    RegionMigrationsSouth - RegionMigrationsBuiltin - RegionUserDataSnippets)
+    RegionMigrations - RegionUserDataSnippets)
 RegionControllerRule = Rule(
     Allow("apiclient.creds.*"),
     Allow("apiclient.multipart.*"),
@@ -257,19 +252,20 @@ RegionControllerRule = Rule(
     Allow("convoy|convoy.**"),
     Allow("crochet|crochet.**"),
     Allow("curtin|curtin.**"),
+    Allow("dbus"),
     Allow("distro_info|distro_info.*"),
     Allow("django|django.**"),
     Allow("docutils.core"),
     Allow("formencode|formencode.**"),
     Allow("jsonschema|jsonschema.**"),
     Allow("lxml|lxml.**"),
-    Allow("maascli.init.add_candid_options"),
-    Allow("maascli.init.add_rbac_options"),
+    Allow("maascli.init.**"),
     Allow("maascli.utils.parse_docstring"),
     Allow("maasserver|maasserver.**"),
     Allow("macaroonbakery|macaroonbakery.**"),
     Allow("markupsafe|markupsafe.**"),
     Allow("metadataserver|metadataserver.**"),
+    Allow("mimeparse"),
     Allow("netaddr|netaddr.**"),
     Allow("oauth|oauth.**"),
     Allow("OpenSSL|OpenSSL.**"),
@@ -296,21 +292,9 @@ Tests = files(
     "src/**/testing.py")
 
 
-TestProtractor = files(
-    "src/maastesting/protractor/**/*.py")
-TestProtractorRule = Rule(
-    Allow("django|django.**"),
-    Allow("maasserver.eventloop"),  # XXX: Dodgy!
-    Allow("provisioningserver.testing.config.*"),
-    Allow("twisted.scripts.twistd"),
-    Allow(StandardLibraries),
-    Allow(TestingLibraries),
-)
+TestScriptEntryPoints = files("src/maastesting/scripts.py")
+TestHelpers = files("src/maastesting/**/*.py") - TestScriptEntryPoints
 
-
-TestHelpers = (
-    files("src/maastesting/**/*.py") -
-    TestProtractor)
 TestHelpersRule = Rule(
     Allow("crochet|crochet.**"),
     Allow("django|django.**"),
@@ -318,6 +302,18 @@ TestHelpersRule = Rule(
     Allow("twisted.**"),
     Allow(StandardLibraries),
     Allow(TestingLibraries),
+)
+
+
+TestScriptEntryPointsRule = Rule(
+    Allow("asyncio"),
+    Allow("os|sys"),
+    Allow("django|django.**"),
+    Allow("maasserver|maasserver.**"),
+    Allow("maastesting.**"),
+    Allow("provisioningserver.**"),
+    Allow("twisted.**"),
+    Allow("uvloop"),
 )
 
 
@@ -395,22 +391,7 @@ checks = [
         ),
     ),
     (
-        RegionMigrationsSouth,
-        Rule(
-            Allow("django|django.**"),
-            Allow("lxml|lxml.**"),
-            Allow("netaddr|netaddr.**"),
-            Allow("south|south.**"),
-            Allow(StandardLibraries),
-
-            # XXX: The following three permissions are temporary;
-            # they MUST be eliminated before MAAS 2.0 release.
-            Allow("maasserver|maasserver.**"),
-            Allow("metadataserver|metadataserver.**"),
-        )
-    ),
-    (
-        RegionMigrationsBuiltin,
+        RegionMigrations,
         Rule(
             Allow("django|django.**"),
             Allow("netaddr|netaddr.**"),
@@ -446,12 +427,9 @@ checks = [
         TestHelpers,
         TestHelpersRule,
     ),
-    #
-    # TESTING HELPERS: PROTRACTOR
-    #
     (
-        TestProtractor,
-        TestProtractorRule,
+        TestScriptEntryPoints,
+        TestScriptEntryPointsRule,
     ),
 ]
 

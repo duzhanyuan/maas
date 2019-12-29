@@ -62,19 +62,11 @@ you can disable the daemon by inserting ``exit 1`` at the top of
 ``/etc/default/bind9``. The package still needs to be installed for
 tests though.
 
-Python development dependencies are pulled automatically from
-`PyPI`_ when ``buildout`` runs. (``buildout`` will be automatically
-configured to create a cache, in order to improve build times.
-See ``utilities/configure-buildout``.)
-
-Javascript development dependencies are pulled automatically from
-`npm`_ when ``make`` runs. (``npm`` will be automatically
-configured to use a cache, in order to improve build times.)
+Python development dependencies are pulled automatically from `PyPI`_ in a
+virtualenv located under ``.ve``.
 
 .. _PyPI:
   http://pypi.python.org/
-.. _npm:
-  https://www.npmjs.com/
 
 
 Git Workflow
@@ -87,15 +79,21 @@ the repository and making your changes in branches.
 First you will want to rename the origin remote to upstream and create a new
 origin in your namespace.
 
+::
+
     $ git remote rename origin upstream
     $ git remote add origin git+ssh://{launchpad-id}@git.launchpad.net/~{launchpad-id}/maas
 
 Now you can make a branch and start making changes.
 
+::
+
     $ git checkout -b new-branch
 
 Once you have made the changes you want, you should commit and push the branch
 to your origin.
+
+::
 
     $ git commit -m "My change" -a
     $ git push origin new-branch
@@ -105,6 +103,8 @@ repository.
 
 Once the branch has been merged and your done with it you can update your
 git repository to remove the branch.
+
+::
 
     $ git fetch upstream
     $ git checkout master
@@ -164,33 +164,6 @@ a test run. The optional ``--subunit-fd`` flag can be used to direct the
 results to a different file descriptor, to ensure a clean stream.
 
 .. _subunit: https://launchpad.net/subunit/
-
-
-Running JavaScript tests
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-The JavaScript tests are run using Karma_. Chromium and PhantomJS are the
-default browser but any browser supported by Karma can be used to run the
-tests.::
-
-    $ ./bin/test.js
-
-If you want to run the JavaScript tests in debug mode so you can inspect the
-code inside of a running browser you can launch Karma_ manually.::
-
-    $ ./bin/karma start src/maastesting/karma.conf.js --browsers Chrome --no-single-run
-
-.. _Karma: http://karma-runner.github.io/
-
-
-JavaScript debugging
-^^^^^^^^^^^^^^^^^^^^
-
-Angularjs debugInfo, which provides hooks for browser debugging tools like Batarang,
-is disabled by default. To re-enable debugInfo, run ``angular.reloadWithDebugInfo();``
-in the browser console.
-
-See https://docs.angularjs.org/guide/production#disabling-debug-data for details.
 
 
 Production MAAS server debugging
@@ -281,6 +254,8 @@ change the files in there and not rebuild the snap.
 
 There's a ``sync-dev-snap`` make target to automate this:
 
+::
+
     $ make sync-dev-snap
 
 The ``sync-dev-snap`` target creates a clean copy of your working tree (so
@@ -289,15 +264,22 @@ build/dev-snap and creates the snap directory in build/dev-snap/prime.
 
 You can now install the snap:
 
-    $ sudo snap try --devmode build/dev-snap/prime
+::
+
+    $ sudo snap try build/dev-snap/prime
 
 Note that 'snap try' is used instead of 'snap install'. The maas snap
 should now be installed:
 
+::
+
     $ snap list
-    Name  Version                          Rev   Developer  Notes
-    core  16-2.27.5                        2774  canonical  core
-    maas  2.3.0~alpha3-6225-gaa05ba6-snap  x1               devmode,try
+    Name          Version                 Rev   Tracking  Publisher   Notes
+    core          16-2.41                 7713  stable    canonical✓  core
+    core18        20191001                1192  stable    canonical✓  base
+    maas          2.7.0-8077-g.7e249fbe4  x1    -         -           try
+    maas-cli      0.6.5                   13    stable    canonical✓  -
+    snapd         2.41                    4605  stable    canonical✓  snapd
 
 Next you need to initialize the snap, just like you would normally do:
 
@@ -307,12 +289,14 @@ And now you're ready to make changes to the code. After you've change
 some source files and want to test them out, run the ``sync-dev-snap``
 target again:
 
+::
+
     $ make sync-dev-snap
 
-You should now see that you files were synced to the prime directory. If
-you changed JS and HTML files only, you should see that changes straight
-away by just reloading the browser. If you changed Python files, you
-need to restart MAAS:
+You should now see that you files were synced to the prime directory. Restart
+the supervisor service to use the synced code:
+
+::
 
     $ sudo service snap.maas.supervisor restart
 
@@ -322,6 +306,8 @@ do some simple testing, the easiest is to create a networking in
 virt-manager that has NAT, but doesn't provide DHCP. If the name of
 the bridge that got created is `virbr1`, you can expose it to your
 container as eth1 using the following config:
+
+::
 
     eth1:
       name: eth1
@@ -525,23 +511,6 @@ up, but with regiond in the foreground::
 Apparently Django needs a lot of debugging ;)
 
 
-Adding new dependencies
-=======================
-
-Since MAAS is distributed mainly as an Ubuntu package, all runtime
-dependencies should be packaged, and we should develop with the
-packaged version if possible. All dependencies, from a package or not,
-need to be added to ``setup.py`` and ``buildout.cfg``, and the version
-specified in ``versions.cfg`` (``allowed-picked-version`` is disabled,
-hence ``buildout`` must be given precise version information).
-
-If it is a development-only dependency (i.e. only needed for the test suite, or
-for developers' convenience), simply running ``buildout`` like this will make
-the necessary updates to ``versions.cfg``::
-
-    $ ./bin/buildout -v buildout:allow-picked-versions=true
-
-
 Adding new source files
 =======================
 
@@ -614,35 +583,6 @@ Once the operations have been added, apply that migration with::
     $ make syncdb
 
 
-Migrations before MAAS 2.0
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Previous version before MAAS 2.0 used South_ to perform database migrations. To
-support upgrading from any previous version of MAAS before 2.0 the South_
-migrations are run. On upgrade of MAAS those migrations will be
-run before the new Django_ migrations are run. On a fresh installation of MAAS
-the South_ migrations will be skipped because the Django_ migrations already
-provide the entire schema in the initial migration. All of this logic is
-performed on upgrade by the `dbupgrade` command.::
-
-    $ bin/maas-region dbupgrade
-
-In some testing case you might need to always run the South_ migrations before
-the Django_ migrations on a clean database. Using the `always-south` option on
-the `dbupgrade` command allows this testing scenario.::
-
-    $ bin/maas-region dbupgrade --always-south
-
-.. Note::
-
-   When the South_ migrations run they are actually being ran under Django 1.6
-   and South that is provided in the MAAS source code in a tarball. Located
-   at ``src/maasserver/migrations/south/django16_south.tar.gz`` this file is
-   extracted into a temporary folder and imported by MAAS to run the South
-   migrations.
-
-.. _South: http://south.aeracode.org/
-
 Examining the database manually
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -674,12 +614,12 @@ Viewing SQL queries during tests
 If you need to view the SQL queries that are performed during a test, the
 `LogSQL` fixture can be used to output all the queries during the test.::
 
-    from maasserver.fixture import LogSQL
+    from maasserver.testing.fixtures import LogSQL
     self.useFixture(LogSQL())
 
 Sometimes you need to see where in the code that query was performed.::
 
-    from maasserver.fixture import LogSQL
+    from maasserver.testing.fixtures import LogSQL
     self.useFixture(LogSQL(include_stacktrace=True))
 
 

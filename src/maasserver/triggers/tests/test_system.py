@@ -8,6 +8,7 @@ __all__ = []
 from contextlib import closing
 
 from django.db import connection
+
 from maasserver.models.dnspublication import zone_serial
 from maasserver.testing.testcase import MAASServerTestCase
 from maasserver.triggers.system import register_system_triggers
@@ -16,7 +17,6 @@ from maastesting.matchers import MockCalledOnceWith
 
 
 class TestTriggers(MAASServerTestCase):
-
     def test_register_system_triggers(self):
         register_system_triggers()
         triggers = [
@@ -66,29 +66,30 @@ class TestTriggers(MAASServerTestCase):
             "resourcepool_sys_rbac_rpool_delete",
             "config_sys_rbac_config_insert",
             "config_sys_rbac_config_update",
-            ]
+        ]
         sql, args = psql_array(triggers, sql_type="text")
         with closing(connection.cursor()) as cursor:
             cursor.execute(
                 "SELECT tgname::text FROM pg_trigger WHERE "
-                "tgname::text = ANY(%s)" % sql, args)
+                "tgname::text = ANY(%s)" % sql,
+                args,
+            )
             db_triggers = cursor.fetchall()
 
         # Note: if this test fails, a trigger may have been added, but not
         # added to the list of expected triggers.
         triggers_found = [trigger[0] for trigger in db_triggers]
         missing_triggers = [
-            trigger
-            for trigger in triggers
-            if trigger not in triggers_found
+            trigger for trigger in triggers if trigger not in triggers_found
         ]
         self.assertEqual(
-            len(triggers), len(db_triggers),
-            "Missing %s triggers in the database. Triggers missing: %s" % (
-                len(triggers) - len(db_triggers), missing_triggers))
+            len(triggers),
+            len(db_triggers),
+            "Missing %s triggers in the database. Triggers missing: %s"
+            % (len(triggers) - len(db_triggers), missing_triggers),
+        )
 
     def test_register_system_triggers_ensures_zone_serial(self):
-        mock_create = self.patch(
-            zone_serial, "create_if_not_exists")
+        mock_create = self.patch(zone_serial, "create_if_not_exists")
         register_system_triggers()
         self.assertThat(mock_create, MockCalledOnceWith())

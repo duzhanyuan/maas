@@ -1,24 +1,59 @@
 name: maas
-version: git
-version-script: utilities/calc-snap-version
+adopt-info: maas
 summary: Metal as a Service
 description: |
   Total automation of your physical servers for amazing data center operational efficiency.
 grade: stable
 confinement: strict
 base: core18
+assumes:
+  - snapd2.41
+epoch: 1*
+passthrough:
+    system-usernames:
+      snap_daemon: shared
+
+plugs:
+  maas-cli:
+    interface: content
+    content: maas-cli
+    target: $SNAP/maas-cli/lib
+    default-provider: maas-cli
 
 apps:
   supervisor:
     daemon: simple
     command: bin/run-supervisord
+    environment:
+      LD_PRELOAD: $SNAP/usr/lib/stub_initgroups.so
+    plugs:
+        - avahi-observe # network discovery
+        - hardware-observe
+        - kernel-module-observe
+        - mount-observe
+        - network
+        - network-bind
+        - network-observe
+        - network-control
+        - system-observe
+        - time-control # chrony
+
   maas:
-    command: bin/maas
+    command: bin/ld-preload $SNAP/bin/maas
+    plugs:
+        - home
+        - mount-observe  # to read /proc/*/mounts
+        - network # for external authentication
+        - network-bind # for postgres
+        - network-observe # to get default URL
 
 parts:
-  maas:
+  maas-pypi:
+    # Keep the pypi dependencies separate from the deb dependencies, so
+    # that the pypi and deb versions of the same packages won't conflict
+    # when building the wheels
     plugin: python
-    source: .
+    source: snap/local/pypi
     requirements:
       - requirements.txt
     build-packages:
@@ -29,6 +64,14 @@ parts:
       - libpq-dev
       - libxml2-dev
       - libxslt1-dev
+
+  maas:
+    plugin: python
+    source: .
+    after:
+        # Make sure the pypi packages are built first, before we install
+        # the deb versions of possible dependencies.
+        - maas-pypi
     stage-packages:
       - amtterm                 # AMT
       - libsoap-lite-perl       # Dependencies for AMT
@@ -49,8 +92,6 @@ parts:
       - isc-dhcp-client
       - isc-dhcp-server
       - libatm1
-      - libjs-angularjs
-      - libjs-jquery
       - libpq5
       - libxtables12
       - lshw
@@ -69,6 +110,7 @@ parts:
       - python3-httplib2
       - python3-jsonschema
       - python3-lxml
+      - python3-mimeparse
       - python3-netaddr
       - python3-netifaces
       - python3-paramiko
@@ -95,6 +137,11 @@ parts:
       - squid
       - tcpdump
       - ubuntu-keyring
+      - util-linux
+    # As a workaround to issues similar to https://pad.lv/1613898 we manually specify setuptools and wheel
+    python-packages:
+      - setuptools
+      - wheel
     organize:
         lib/python3.*/site-packages/etc/*: etc
         lib/python3.*/site-packages/usr/bin/*: usr/bin
@@ -109,7 +156,6 @@ parts:
         - -lib/python3/dist-packages/maastesting
         - -share
         - -usr/bin/xdg-*
-        - -usr/include/libjs-angularjs
         - -usr/share/applications
         - -usr/share/bug
         - -usr/share/debhelper
@@ -125,26 +171,164 @@ parts:
     prime:
       - $remove
     override-build: |
+      set -e
       snapcraftctl build
-      cp -a ../../snap/src/bin ../../snap/src/sbin $SNAPCRAFT_PART_INSTALL
-      ln -s ../usr/lib/postgresql/10/bin/initdb $SNAPCRAFT_PART_INSTALL/bin/initdb
-      ln -s ../usr/lib/postgresql/10/bin/pg_ctl $SNAPCRAFT_PART_INSTALL/bin/pg_ctl
-      ln -s ../usr/lib/postgresql/10/bin/postgres $SNAPCRAFT_PART_INSTALL/bin/postgres
-      ln -s ../usr/lib/postgresql/10/bin/psql $SNAPCRAFT_PART_INSTALL/bin/psql
+      ln -s -f ../usr/lib/postgresql/10/bin/initdb $SNAPCRAFT_PART_INSTALL/bin/initdb
+      ln -s -f ../usr/lib/postgresql/10/bin/pg_ctl $SNAPCRAFT_PART_INSTALL/bin/pg_ctl
+      ln -s -f ../usr/lib/postgresql/10/bin/postgres $SNAPCRAFT_PART_INSTALL/bin/postgres
+      ln -s -f ../usr/lib/postgresql/10/bin/psql $SNAPCRAFT_PART_INSTALL/bin/psql
       # If python3-netaddr contains absolute symlinks.
       # See https://bugs.launchpad.net/snapcraft/+bug/1774410
       ln -s -f ../../../../../../var/lib/ieee-data/oui.txt $SNAPCRAFT_PART_INSTALL/usr/lib/python3/dist-packages/netaddr/eui/oui.txt
       ln -s -f ../../../../../../var/lib/ieee-data/iab.txt $SNAPCRAFT_PART_INSTALL/usr/lib/python3/dist-packages/netaddr/eui/iab.txt
-  region-static:
-    plugin: dump
-    source: src/maasserver/static
+    override-prime: |
+      set -e
+      cwd=$(pwd)
+      cd $SNAPCRAFT_PART_SRC
+      snapcraftctl set-version $($SNAPCRAFT_PART_SRC/utilities/package-version)
+      cd $cwd
+      snapcraftctl prime
+
+  ui:
+    plugin: nodejs
+    source: src/maasui/src
+    nodejs-version: "12.13.0"
+    nodejs-yarn-version: "v1.19.1"
+    override-build: |
+      set -e
+
+      PATH="$PATH:$SNAPCRAFT_PART_BUILD/../npm/bin"
+      yarn install
+      yarn build-shared
+      PUBLIC_URL=/MAAS/r/ yarn build-ui
+      PUBLIC_URL=/MAAS/ yarn build-legacy
+      yarn copy-build
+
+      INSTALL_DIR="$SNAPCRAFT_PART_INSTALL/usr/share/maas/web"
+      mkdir -p "$INSTALL_DIR"
+      cp -a build "$INSTALL_DIR/static"
+    prime:
+      - usr/share/maas/web/static
+
+  machine-resources:
+    plugin: make
+    source: src/machine-resources
+    build-snaps:
+      - go
+    build-packages:
+      - go-dep
+    artifacts:
+      - bin
     organize:
-      '*': usr/share/maas/web/static/
-  snap:
+      bin: usr/share/maas/machine-resources
+
+  tree:
     plugin: dump
-    source: snap-data
+    source: snap/local/tree
+
+  stub-initgroups:
+    plugin: make
+    source: snap/local/stub_initgroups
+    artifacts:
+        - stub_initgroups.so
     organize:
-      bind: usr/share/maas/bind
-      conf/chrony.conf: usr/share/maas/chrony.conf
-      conf/supervisord.conf.template: usr/share/maas/supervisord.conf.template
-      nginx: usr/share/maas/nginx
+        stub_initgroups.so: usr/lib/stub_initgroups.so
+    prime:
+        - usr/lib/stub_initgroups.so
+
+  snapcraft-preload:
+    plugin: cmake
+    source: https://github.com/sergiusens/snapcraft-preload
+    source-type: git
+    build-packages:
+      - on amd64:
+          - gcc-multilib
+          - g++-multilib
+
+  postgres-95:
+    plugin: autotools
+    source: snap/local/postgres-9.5
+    source-type: local
+    # Get the postgres 9.5 source from Launchpad and put it in
+    # snap/local/postgres-9.5 and let snapcraft pull the source from there.
+    # That way snapcraft properly detects that the source hasn't changed, and
+    # won't try to pull the source every time snapcraft is invoked.
+    override-pull: |
+      set -e
+      pull-lp-source postgresql-9.5 xenial
+      rm -rf $SNAPCRAFT_PROJECT_DIR/snap/local/postgres-9.5
+      mv postgresql-9.5*/ $SNAPCRAFT_PROJECT_DIR/snap/local/postgres-9.5
+      snapcraftctl pull
+      echo "all:\ninstall:" > doc/Makefile  # Skips doc building.
+    build-packages:
+      - ubuntu-dev-tools
+      - bison
+      - flex
+      - libreadline-dev
+      - zlib1g-dev
+      - python-dev
+      - tcl8.6-dev
+      - libssl-dev
+      - libpam0g-dev
+      - libxml2-dev
+      - libldap2-dev
+      - libxslt1-dev
+      - uuid-dev
+      - libxml2-utils
+      - openjade
+      - opensp
+      - xsltproc
+      - gettext
+      - libperl-dev
+      - dpkg-dev
+    override-build: |
+      set -e
+      HOST_MULTIARCH=$(gcc -print-multiarch)
+      ARCH=$(dpkg-architecture -qDEB_HOST_ARCH_BITS)
+      if [ $ARCH -eq 64 ]; then
+        EXTRA_CFLAGS="-fno-omit-frame-pointer"
+      elif [ $ARCH -eq 32 ]; then
+        EXTRA_CFLAGS="-fPIC -pie"
+      fi
+      ./configure \
+        LDFLAGS="-Wl,--as-needed -L/usr/lib/mit-krb5 -L/usr/lib/$HOST_MULTIARCH/mit-krb5" \
+        CFLAGS="-I/usr/include/mit-krb5 $EXTRA_CFLAGS" \
+        --prefix=/usr/postgresql-9.5 \
+        --localstatedir=/etc/postgresql-9.5 \
+        --sysconfdir=/var/postgresql-9.5 \
+        --enable-nls \
+        --enable-integer-datetimes \
+        --enable-thread-safety \
+        --enable-tap-tests \
+        --enable-debug \
+        --disable-rpath \
+        --with-uuid=e2fs \
+        --with-gnu-ld \
+        --with-pgport=5432 \
+        --with-system-tzdata=/usr/share/zoneinfo \
+        --with-ldap \
+        --with-tcl \
+        --with-tclconfig=/usr/lib/tcl8.6/ \
+        --with-perl \
+        --with-python \
+        --with-pam \
+        --with-openssl \
+        --with-libxml \
+        --with-libxslt && make world
+      make install-world DESTDIR=$SNAPCRAFT_PART_INSTALL
+
+hooks:
+  install:
+    plugs:
+      - mount-observe  # to read /proc/*/mounts
+      - network  # to connect to the db for running upgrades
+  post-refresh:
+    plugs:
+      - mount-observe  # to read /proc/*/mounts
+      - network  # to connect to the db for running upgrades
+
+layout:
+  /etc/libvirt:
+    bind: $SNAP/etc/libvirt
+  /etc/freeipmi:
+    bind: $SNAP/etc/freeipmi

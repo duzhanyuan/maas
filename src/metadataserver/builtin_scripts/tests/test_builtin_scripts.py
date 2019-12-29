@@ -7,6 +7,8 @@ import copy
 from datetime import timedelta
 import random
 
+from testtools.matchers import ContainsAll, Equals, Not
+
 from maasserver.models import VersionedTextFile
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import MAASServerTestCase
@@ -18,11 +20,6 @@ from metadataserver.builtin_scripts import (
 from metadataserver.enum import SCRIPT_TYPE_CHOICES
 from metadataserver.models import Script
 from provisioningserver.utils.version import get_maas_version
-from testtools.matchers import (
-    ContainsAll,
-    Equals,
-    Not,
-)
 
 
 class TestBuiltinScripts(MAASServerTestCase):
@@ -44,7 +41,9 @@ class TestBuiltinScripts(MAASServerTestCase):
             # These values should always be set by the script loader.
             self.assertEquals(
                 "Created by maas-%s" % get_maas_version(),
-                script_in_db.script.comment, script.name)
+                script_in_db.script.comment,
+                script.name,
+            )
             self.assertTrue(script_in_db.default, script.name)
 
     def test_update_script(self):
@@ -62,17 +61,19 @@ class TestBuiltinScripts(MAASServerTestCase):
         script.title = factory.make_string()
         script.description = factory.make_string()
         script.script_type = factory.pick_choice(SCRIPT_TYPE_CHOICES)
-        script.results = [factory.make_name('result')]
+        script.results = [factory.make_name("result")]
         script.script.parameters = {
-            factory.make_name('param'): {'type': 'storage'}}
+            factory.make_name("param"): {"type": "storage"}
+        }
 
         # Put fake old data in to simulate updating a script.
         old_script = VersionedTextFile.objects.create(
-            data=factory.make_string())
+            data=factory.make_string()
+        )
         script.script = old_script
 
         # User changeable fields.
-        user_tags = [factory.make_name('tag') for _ in range(3)]
+        user_tags = [factory.make_name("tag") for _ in range(3)]
         script.tags = copy.deepcopy(user_tags)
         user_timeout = timedelta(random.randint(0, 1000))
         script.timeout = user_timeout
@@ -92,8 +93,8 @@ class TestBuiltinScripts(MAASServerTestCase):
 
         self.assertEquals(old_script, script.script.previous_version)
         self.assertEquals(
-            "Updated by maas-%s" % get_maas_version(),
-            script.script.comment)
+            "Updated by maas-%s" % get_maas_version(), script.script.comment
+        )
         self.assertTrue(script.default)
 
     def test_update_doesnt_revert_script(self):
@@ -107,7 +108,7 @@ class TestBuiltinScripts(MAASServerTestCase):
         script.script = script.script.update(new_script)
 
         # Fake user updates
-        user_tags = [factory.make_name('tag') for _ in range(3)]
+        user_tags = [factory.make_name("tag") for _ in range(3)]
         script.tags = user_tags
         user_timeout = timedelta(random.randint(0, 1000))
         script.timeout = user_timeout
@@ -116,7 +117,8 @@ class TestBuiltinScripts(MAASServerTestCase):
         # Test that subsequent scripts still get updated
         second_update_script_values = BUILTIN_SCRIPTS[update_script_index + 1]
         second_script = Script.objects.get(
-            name=second_update_script_values.name)
+            name=second_update_script_values.name
+        )
         # Put fake old data in to simulate updating a script.
         orig_title = second_script.title
         orig_description = second_script.description
@@ -127,13 +129,15 @@ class TestBuiltinScripts(MAASServerTestCase):
         second_script.title = factory.make_string()
         second_script.description = factory.make_string()
         second_script.script_type = factory.pick_choice(SCRIPT_TYPE_CHOICES)
-        second_script.results = [factory.make_name('result')]
+        second_script.results = [factory.make_name("result")]
         second_script.script.parameters = {
-            factory.make_name('param'): {'type': 'storage'}}
+            factory.make_name("param"): {"type": "storage"}
+        }
 
         # Put fake old data in to simulate updating a script.
         old_script = VersionedTextFile.objects.create(
-            data=factory.make_string())
+            data=factory.make_string()
+        )
         second_script.script = old_script
 
         second_script.save()
@@ -156,5 +160,6 @@ class TestBuiltinScripts(MAASServerTestCase):
         self.assertEquals(old_script, second_script.script.previous_version)
         self.assertEquals(
             "Updated by maas-%s" % get_maas_version(),
-            second_script.script.comment)
+            second_script.script.comment,
+        )
         self.assertTrue(second_script.default)

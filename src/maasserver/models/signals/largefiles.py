@@ -3,18 +3,16 @@
 
 """Respond to large file changes."""
 
-__all__ = [
-    "signals",
-]
+__all__ = ["signals"]
 
 from django.db.models.signals import post_delete
+
 from maasserver.models.largefile import (
     delete_large_object_content_later,
     LargeFile,
 )
 from maasserver.utils.orm import post_commit_do
 from maasserver.utils.signals import SignalsManager
-
 
 signals = SignalsManager()
 

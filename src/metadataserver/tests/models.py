@@ -3,11 +3,10 @@
 
 """Test model for testing BinaryField."""
 
-__all__ = [
-    "BinaryFieldModel",
-    ]
+__all__ = ["BinaryFieldModel"]
 
 from django.db.models import Model
+
 from metadataserver.fields import BinaryField
 
 

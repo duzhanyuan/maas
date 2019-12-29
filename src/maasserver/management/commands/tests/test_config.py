@@ -11,13 +11,6 @@ import random
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from maasserver.config import RegionConfiguration
-from maasserver.management.commands import _config as config
-from maasserver.testing.config import RegionConfigurationFixture
-from maasserver.testing.factory import factory
-from maastesting.fixtures import CaptureStandardIO
-from maastesting.testcase import MAASTestCase
-from provisioningserver.config import ConfigurationOption
 from testtools.matchers import (
     AfterPreprocessing,
     AllMatch,
@@ -31,6 +24,14 @@ from testtools.matchers import (
 )
 import yaml
 
+from maasserver.config import RegionConfiguration
+from maasserver.management.commands import _config as config
+from maasserver.testing.config import RegionConfigurationFixture
+from maasserver.testing.factory import factory
+from maastesting.fixtures import CaptureStandardIO
+from maastesting.testcase import MAASTestCase
+from provisioningserver.config import ConfigurationOption
+
 
 def call_nnn(command, **options):
     """Call `command`, return captures standard IO.
@@ -42,6 +43,7 @@ def call_nnn(command, **options):
     with CaptureStandardIO() as stdio:
         call_command(command, **options)
     return stdio
+
 
 call_get = partial(call_nnn, "local_config_get")
 call_reset = partial(call_nnn, "local_config_reset")
@@ -74,8 +76,9 @@ class TestConfigurationGet(MAASTestCase):
         settings = stdio.getOutput()
         self.assertThat(settings, Not(Contains(self.option)))
         with RegionConfiguration.open() as configuration:
-            self.assertThat(settings, Contains(
-                str(getattr(configuration, self.option))))
+            self.assertThat(
+                settings, Contains(str(getattr(configuration, self.option)))
+            )
 
 
 class TestConfigurationReset(MAASTestCase):
@@ -116,12 +119,22 @@ class TestConfigurationSet(MAASTestCase):
         # Set the option to a random value.
         if self.option == "database_port":
             value = factory.pick_port()
-        elif self.option == "database_conn_max_age":
+        elif self.option in (
+            "database_conn_max_age",
+            "database_keepalive_count",
+            "database_keepalive_interval",
+            "database_keepalive_idle",
+        ):
             value = random.randint(0, 60)
         elif self.option == "num_workers":
             value = random.randint(1, 16)
-        elif self.option in ["debug", "debug_queries", "debug_http"]:
-            value = random.choice(['true', 'false'])
+        elif self.option in [
+            "debug",
+            "debug_queries",
+            "debug_http",
+            "database_keepalive",
+        ]:
+            value = random.choice([True, False])
         else:
             value = factory.make_name("foobar")
 
@@ -138,8 +151,8 @@ class TestConfigurationSet(MAASTestCase):
         # str so Contains works with int values.
         with RegionConfiguration.open() as configuration:
             self.assertThat(
-                str(getattr(configuration, self.option)),
-                Contains(str(value)))
+                str(getattr(configuration, self.option)), Contains(str(value))
+            )
 
 
 class TestConfigurationSet_DatabasePort(MAASTestCase):
@@ -153,20 +166,31 @@ class TestConfigurationSet_DatabasePort(MAASTestCase):
     def test__exception_when_port_is_not_an_integer(self):
         self.useFixture(RegionConfigurationFixture())
         error = self.assertRaises(CommandError, call_set, database_port="foo")
-        self.assertThat(str(error), Equals(
-            "database-port: Please enter an integer value."))
+        self.assertThat(
+            str(error), Equals("database-port: Please enter an integer value.")
+        )
 
     def test__exception_when_port_is_too_low(self):
         self.useFixture(RegionConfigurationFixture())
         error = self.assertRaises(CommandError, call_set, database_port=0)
-        self.assertThat(str(error), Equals(
-            "database-port: Please enter a number that is 1 or greater."))
+        self.assertThat(
+            str(error),
+            Equals(
+                "database-port: Please enter a number that is 1 or greater."
+            ),
+        )
 
     def test__exception_when_port_is_too_high(self):
         self.useFixture(RegionConfigurationFixture())
-        error = self.assertRaises(CommandError, call_set, database_port=2**16)
-        self.assertThat(str(error), Equals(
-            "database-port: Please enter a number that is 65535 or smaller."))
+        error = self.assertRaises(
+            CommandError, call_set, database_port=2 ** 16
+        )
+        self.assertThat(
+            str(error),
+            Equals(
+                "database-port: Please enter a number that is 65535 or smaller."
+            ),
+        )
 
 
 class TestConfigurationCommon(MAASTestCase):
@@ -179,48 +203,39 @@ class TestConfigurationCommon(MAASTestCase):
         self.assertThat(
             config.gen_configuration_options(),
             AllMatch(
-                MatchesListwise([
-                    IsInstance(str, bytes),
-                    IsInstance(ConfigurationOption, property),
-                ]),
-            ))
+                MatchesListwise(
+                    [
+                        IsInstance(str, bytes),
+                        IsInstance(ConfigurationOption, property),
+                    ]
+                )
+            ),
+        )
 
     def test_gen_mutable_configuration_options(self):
         self.assertThat(
             config.gen_mutable_configuration_options(),
             AllMatch(
-                MatchesListwise([
-                    IsInstance(str, bytes),
-                    IsInstance(ConfigurationOption),
-                ]),
-            ))
+                MatchesListwise(
+                    [IsInstance(str, bytes), IsInstance(ConfigurationOption)]
+                )
+            ),
+        )
 
     def test_gen_configuration_options_for_getting(self):
         self.assertThat(
             config.gen_configuration_options_for_getting(),
-            AllMatch(
-                MatchesListwise([
-                    Not(Contains("_")),
-                    IsInstance(dict)
-                ]),
-            ))
+            AllMatch(MatchesListwise([Not(Contains("_")), IsInstance(dict)])),
+        )
 
     def test_gen_configuration_options_for_resetting(self):
         self.assertThat(
             config.gen_configuration_options_for_resetting(),
-            AllMatch(
-                MatchesListwise([
-                    Not(Contains("_")),
-                    IsInstance(dict)
-                ]),
-            ))
+            AllMatch(MatchesListwise([Not(Contains("_")), IsInstance(dict)])),
+        )
 
     def test_gen_configuration_options_for_setting(self):
         self.assertThat(
             config.gen_configuration_options_for_setting(),
-            AllMatch(
-                MatchesListwise([
-                    Not(Contains("_")),
-                    IsInstance(dict)
-                ]),
-            ))
+            AllMatch(MatchesListwise([Not(Contains("_")), IsInstance(dict)])),
+        )

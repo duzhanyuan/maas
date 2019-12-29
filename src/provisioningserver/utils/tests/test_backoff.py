@@ -8,16 +8,7 @@ __all__ = []
 from itertools import islice
 
 from hypothesis import given
-from hypothesis.strategies import (
-    floats,
-    lists,
-)
-from maastesting.matchers import GreaterThanOrEqual
-from maastesting.testcase import MAASTestCase
-from provisioningserver.utils.backoff import (
-    exponential_growth,
-    full_jitter,
-)
+from hypothesis.strategies import floats, lists
 from testtools.matchers import (
     AllMatch,
     HasLength,
@@ -25,6 +16,10 @@ from testtools.matchers import (
     LessThan,
     MatchesAll,
 )
+
+from maastesting.matchers import GreaterThanOrEqual
+from maastesting.testcase import MAASTestCase
+from provisioningserver.utils.backoff import exponential_growth, full_jitter
 
 
 class TestFunctions(MAASTestCase):
@@ -47,5 +42,7 @@ class TestFunctions(MAASTestCase):
         jittered = list(full_jitter(values))
 
         self.assertThat(jittered, AllMatch(IsInstance(float)))
-        self.assertThat(jittered, AllMatch(MatchesAll(
-            GreaterThanOrEqual(0.0), LessThan(10000.0))))
+        self.assertThat(
+            jittered,
+            AllMatch(MatchesAll(GreaterThanOrEqual(0.0), LessThan(10000.0))),
+        )

@@ -3,36 +3,31 @@
 
 """API handlers: `SSLKey`."""
 
-__all__ = [
-    'SSLKeyHandler',
-    'SSLKeysHandler',
-    ]
+__all__ = ["SSLKeyHandler", "SSLKeysHandler"]
 
 import http.client
 
 from django.conf import settings
-from django.http import (
-    HttpResponse,
-    HttpResponseForbidden,
-)
+from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404
+from piston3.emitters import JSONEmitter
+from piston3.handler import typemapper
+from piston3.utils import rc
+
 from maasserver.api.support import OperationsHandler
 from maasserver.audit import create_audit_event
 from maasserver.enum import ENDPOINT
 from maasserver.exceptions import MAASAPIValidationError
 from maasserver.forms import SSLKeyForm
 from maasserver.models import SSLKey
-from piston3.emitters import JSONEmitter
-from piston3.handler import typemapper
-from piston3.utils import rc
 from provisioningserver.events import EVENT_TYPES
-
 
 DISPLAY_SSLKEY_FIELDS = ("id", "key")
 
 
 class SSLKeysHandler(OperationsHandler):
     """Operations on multiple keys."""
+
     api_doc_section_name = "SSL Keys"
 
     update = delete = None
@@ -46,7 +41,7 @@ class SSLKeysHandler(OperationsHandler):
         keys.
         @success-example "success-json" [exkey=ssl-keys-list] placeholder text
         """
-        return SSLKey.objects.filter(user=request.user).order_by('id')
+        return SSLKey.objects.filter(user=request.user).order_by("id")
 
     def create(self, request):
         """@description-title Add a new SSL key
@@ -69,17 +64,20 @@ class SSLKeysHandler(OperationsHandler):
         if form.is_valid():
             sslkey = form.save(ENDPOINT.API, request)
             emitter = JSONEmitter(
-                sslkey, typemapper, None, DISPLAY_SSLKEY_FIELDS)
+                sslkey, typemapper, None, DISPLAY_SSLKEY_FIELDS
+            )
             stream = emitter.render(request)
             return HttpResponse(
-                stream, content_type='application/json; charset=utf-8',
-                status=int(http.client.CREATED))
+                stream,
+                content_type="application/json; charset=utf-8",
+                status=int(http.client.CREATED),
+            )
         else:
             raise MAASAPIValidationError(form.errors)
 
     @classmethod
     def resource_uri(cls, *args, **kwargs):
-        return ('sslkeys_handler', [])
+        return ("sslkeys_handler", [])
 
 
 class SSLKeyHandler(OperationsHandler):
@@ -88,6 +86,7 @@ class SSLKeyHandler(OperationsHandler):
 
     SSL keys can be retrieved or deleted.
     """
+
     api_doc_section_name = "SSL Key"
 
     fields = DISPLAY_SSLKEY_FIELDS
@@ -118,8 +117,7 @@ class SSLKeyHandler(OperationsHandler):
         """
         key = get_object_or_404(SSLKey, id=id)
         if key.user != request.user:
-            return HttpResponseForbidden(
-                "Can't get a key you don't own.")
+            return HttpResponseForbidden("Can't get a key you don't own.")
         return key
 
     def delete(self, request, id):
@@ -145,12 +143,17 @@ class SSLKeyHandler(OperationsHandler):
             return HttpResponseForbidden(
                 "Can't delete a key you don't own.",
                 content_type=(
-                    "text/plain; charset=%s" % settings.DEFAULT_CHARSET)
+                    "text/plain; charset=%s" % settings.DEFAULT_CHARSET
+                ),
             )
         key.delete()
         create_audit_event(
-            EVENT_TYPES.AUTHORISATION, ENDPOINT.API, request, None,
-            description="Deleted SSL key id='%s'." % id)
+            EVENT_TYPES.AUTHORISATION,
+            ENDPOINT.API,
+            request,
+            None,
+            description="Deleted SSL key id='%s'." % id,
+        )
         return rc.DELETED
 
     @classmethod
@@ -158,4 +161,4 @@ class SSLKeyHandler(OperationsHandler):
         keyid = "id"
         if sslkey is not None:
             keyid = sslkey.id
-        return ('sslkey_handler', (keyid, ))
+        return ("sslkey_handler", (keyid,))

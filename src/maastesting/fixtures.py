@@ -6,7 +6,6 @@
 __all__ = [
     "CaptureStandardIO",
     "DetectLeakedFileDescriptors",
-    "DisplayFixture",
     "LoggerSilencerFixture",
     "ProxiesDisabledFixture",
     "TempDirectory",
@@ -15,24 +14,17 @@ __all__ = [
 import builtins
 import codecs
 from errno import ENOENT
-from io import (
-    BytesIO,
-    TextIOWrapper,
-)
+from io import BytesIO, TextIOWrapper
 import logging
 import os
 from pathlib import Path
-from subprocess import (
-    CalledProcessError,
-    PIPE,
-    Popen,
-)
 import sys
 
 import fixtures
 from fixtures import EnvironmentVariable
-from maastesting import root
 from testtools.monkey import MonkeyPatcher
+
+from maastesting import root
 
 
 class ImportErrorFixture(fixtures.Fixture):
@@ -61,9 +53,11 @@ class ImportErrorFixture(fixtures.Fixture):
             if name == self.module_name:
                 module_list = import_args[2]
                 if self.sub_name in module_list:
-                    raise ImportError("ImportErrorFixture raising ImportError "
-                                      "exception on targeted import: %s.%s" % (
-                                          self.module_name, self.sub_name))
+                    raise ImportError(
+                        "ImportErrorFixture raising ImportError "
+                        "exception on targeted import: %s.%s"
+                        % (self.module_name, self.sub_name)
+                    )
 
             return self.__real_import(name, *import_args, **kwargs)
 
@@ -91,61 +85,6 @@ class LoggerSilencerFixture(fixtures.Fixture):
             logger = logging.getLogger(name)
             self.addCleanup(logger.setLevel, logger.level)
             logger.setLevel(self.level)
-
-
-class DisplayFixture(fixtures.Fixture):
-    """Fixture to create a virtual display with `xvfb-run`.
-
-    This will set the ``DISPLAY`` environment variable once it's up and
-    running (and reset it when it shuts down).
-    """
-
-    def __init__(self, size=(1280, 1024), depth=24):
-        super(DisplayFixture, self).__init__()
-        self.width, self.height = size
-        self.depth = depth
-
-    @property
-    def command(self):
-        """The command this fixture will start.
-
-        ``xvfb-run`` is the executable used, to which the following arguments
-        are passed:
-
-          ``--server-args=``
-            ``-ac`` disables host-based access control mechanisms. See
-              Xserver(1).
-            ``-screen`` forces a screen configuration. At the time of writing
-               there is some disagreement between xvfb-run(1) and Xvfb(1)
-               about what the default is.
-
-          ``--auto-servernum``
-            Try to get a free server number, starting at 99. See xvfb-run(1).
-
-        ``xvfb-run`` is asked to chain to ``bash``, which echos the
-        ``DISPLAY`` environment variable and execs ``cat``. This lets us shut
-        down the framebuffer simply by closing the process's stdin.
-        """
-        spec = "{self.width}x{self.height}x{self.depth}".format(self=self)
-        args = "-ac -screen 0 %s" % spec
-        return (
-            "xvfb-run", "--server-args", args, "--auto-servernum", "--",
-            "bash", "-c", "echo $DISPLAY && exec cat",
-        )
-
-    def setUp(self):
-        super(DisplayFixture, self).setUp()
-        self.process = Popen(self.command, stdin=PIPE, stdout=PIPE)
-        self.display = self.process.stdout.readline().decode("ascii").strip()
-        if not self.display or self.process.poll() is not None:
-            raise CalledProcessError(self.process.returncode, self.command)
-        self.useFixture(EnvironmentVariable("DISPLAY", self.display))
-        self.addCleanup(self.shutdown)
-
-    def shutdown(self):
-        self.process.stdin.close()
-        if self.process.wait() != 0:
-            raise CalledProcessError(self.process.returncode, self.command)
 
 
 class ProxiesDisabledFixture(fixtures.Fixture):
@@ -178,26 +117,6 @@ class TempWDFixture(TempDirectory):
         super(TempWDFixture, self).setUp()
         self.addCleanup(os.chdir, cwd)
         os.chdir(self.path)
-
-
-class ChromiumWebDriverFixture(fixtures.Fixture):
-    """Starts and starts the selenium Chromium webdriver."""
-
-    def setUp(self):
-        super(ChromiumWebDriverFixture, self).setUp()
-        # Import late to avoid hard dependency.
-        from selenium.webdriver.chrome.service import Service as ChromeService
-        service = ChromeService(
-            "/usr/lib/chromium-browser/chromedriver", 4444)
-
-        # Set the LD_LIBRARY_PATH so the chrome driver can find the required
-        # libraries.
-        self.useFixture(EnvironmentVariable(
-            "LD_LIBRARY_PATH", "/usr/lib/chromium-browser/libs"))
-        service.start()
-
-        # Stop service on cleanup.
-        self.addCleanup(service.stop)
 
 
 class CaptureStandardIO(fixtures.Fixture):
@@ -250,8 +169,8 @@ class CaptureStandardIO(fixtures.Fixture):
 
     def _wrapStream(self, stream):
         return TextIOWrapper(
-            stream, encoding=self.encoding,
-            write_through=True)
+            stream, encoding=self.encoding, write_through=True
+        )
 
     def _addStream(self, name, stream):
         self.patcher.add_patch(self, name, stream)
@@ -359,8 +278,8 @@ class DetectLeakedFileDescriptors(fixtures.Fixture):
         if len(fds_new) != 0:
             message = ["File descriptor(s) leaked:"]
             message.extend(
-                "* %s --> %s" % (fd, desc)
-                for (fd, desc) in fds_new.items())
+                "* %s --> %s" % (fd, desc) for (fd, desc) in fds_new.items()
+            )
             raise AssertionError("\n".join(message))
 
 
@@ -384,15 +303,18 @@ class MAASRootFixture(fixtures.Fixture):
             ntp.joinpath(".keep").touch()
             ntp_conf = ntp.joinpath("chrony.conf")
             ntp_conf.write_bytes(
-                skel.joinpath("etc", "chrony", "chrony.conf").read_bytes())
+                skel.joinpath("etc", "chrony", "chrony.conf").read_bytes()
+            )
             # Create and populate $MAAS_ROOT/run/etc/maas.
             maas = etc.joinpath("maas")
             maas.mkdir(parents=True)
             maas.joinpath("drivers.yaml").symlink_to(
-                skel.joinpath("etc", "maas", "drivers.yaml").resolve())
+                skel.joinpath("etc", "maas", "drivers.yaml").resolve()
+            )
             maas.joinpath("templates").mkdir()
             # Update the environment.
             self.useFixture(EnvironmentVariable("MAAS_ROOT", self.path))
         else:
             raise NotADirectoryError(
-                "Skeleton MAAS_ROOT (%s) is not a directory." % skel)
+                "Skeleton MAAS_ROOT (%s) is not a directory." % skel
+            )

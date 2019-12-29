@@ -9,18 +9,16 @@ import asyncio
 import sys
 
 from twisted.internet import asyncioreactor
-
+from twisted.python import usage
+from twisted.scripts._twistd_unix import ServerOptions, UnixApplicationRunner
 
 try:
     import uvloop
+
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 except ImportError:
     pass
 asyncioreactor.install()
-
-
-from twisted.python import usage
-from twisted.scripts._twistd_unix import ServerOptions, UnixApplicationRunner
 
 
 # Load the available MAAS plugins.
@@ -33,7 +31,9 @@ else:
     # Rackd service that twisted will spawn.
     twistd_plugins.append(
         ProvisioningServiceMaker(
-            "maas-rackd", "The MAAS Rack Controller daemon."))
+            "maas-rackd", "The MAAS Rack Controller daemon."
+        )
+    )
 
 try:
     from maasserver.plugin import (
@@ -47,16 +47,20 @@ else:
     # Regiond services that twisted could spawn.
     twistd_plugins.append(
         RegionMasterServiceMaker(
-            "maas-regiond-master",
-            "The MAAS Region Controller master process."))
+            "maas-regiond-master", "The MAAS Region Controller master process."
+        )
+    )
     twistd_plugins.append(
         RegionWorkerServiceMaker(
-            "maas-regiond-worker",
-            "The MAAS Region Controller worker process."))
+            "maas-regiond-worker", "The MAAS Region Controller worker process."
+        )
+    )
     twistd_plugins.append(
         RegionAllInOneServiceMaker(
             "maas-regiond-all",
-            "The MAAS Region Controller all-in-one process."))
+            "The MAAS Region Controller all-in-one process.",
+        )
+    )
 
 
 class Options(ServerOptions):
@@ -71,8 +75,9 @@ def runService(service):
     """Run the `service`."""
     config = Options()
     args = [
-        '--logger=provisioningserver.logger.EventLogger',
-        '--nodaemon', '--pidfile=',
+        "--logger=provisioningserver.logger.EventLogger",
+        "--nodaemon",
+        "--pidfile=",
     ]
     args += sys.argv[1:]
     args += [service]
@@ -87,4 +92,4 @@ def runService(service):
 
 def run():
     """Run the maas-rackd service."""
-    runService('maas-rackd')
+    runService("maas-rackd")

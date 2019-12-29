@@ -3,13 +3,15 @@
 
 """NTP service for the region controller."""
 
-__all__ = [
-    "RegionNetworkTimeProtocolService",
-]
+__all__ = ["RegionNetworkTimeProtocolService"]
 
 from datetime import timedelta
 
 import attr
+from twisted.application.internet import TimerService
+from twisted.internet.defer import maybeDeferred
+from twisted.internet.threads import deferToThread
+
 from maasserver import ntp
 from maasserver.models.node import RegionController
 from maasserver.service_monitor import service_monitor
@@ -17,14 +19,7 @@ from maasserver.utils.orm import transactional
 from maasserver.utils.threads import deferToDatabase
 from provisioningserver.logger import LegacyLogger
 from provisioningserver.ntp.config import configure_region
-from provisioningserver.utils.twisted import (
-    callOut,
-    synchronous,
-)
-from twisted.application.internet import TimerService
-from twisted.internet.defer import maybeDeferred
-from twisted.internet.threads import deferToThread
-
+from provisioningserver.utils.twisted import callOut, synchronous
 
 log = LegacyLogger()
 
@@ -88,9 +83,9 @@ class RegionNetworkTimeProtocolService(TimerService):
             `_getConfiguration`.
         """
         d = deferToThread(
-            configure_region, configuration.references, configuration.peers)
-        d.addCallback(
-            callOut, service_monitor.restartService, "ntp_region")
+            configure_region, configuration.references, configuration.peers
+        )
+        d.addCallback(callOut, service_monitor.restartService, "ntp_region")
         return d
 
     def _configurationApplied(self, configuration):

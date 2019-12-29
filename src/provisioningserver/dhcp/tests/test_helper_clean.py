@@ -10,7 +10,6 @@ from maastesting.testcase import MAASTestCase
 from provisioningserver.utils.fs import read_text_file
 from provisioningserver.utils.shell import call_and_check
 
-
 LEASES_FILE_WITH_HOSTS = """\
 lease 192.168.10.67 {
   starts 2 2016/03/22 13:44:15;
@@ -92,12 +91,7 @@ lease 192.168.10.69 {
 
 
 class TestDHCPClean(MAASTestCase):
-
     def test_removes_hosts_from_leases_file(self):
         path = self.make_file(contents=LEASES_FILE_WITH_HOSTS)
-        call_and_check([
-            "%s/scripts/maas-dhcp-helper" % root,
-            "clean",
-            path,
-        ])
+        call_and_check(["%s/scripts/maas-dhcp-helper" % root, "clean", path])
         self.assertEquals(LEASES_FILE_WITHOUT_HOSTS, read_text_file(path))

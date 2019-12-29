@@ -3,28 +3,19 @@
 
 """Miscellaneous small definitions in support of boot-resource import."""
 
-__all__ = [
-    'get_os_from_product',
-    'get_signing_policy',
-    'ImageSpec',
-    'maaslog',
-    ]
+__all__ = ["get_os_from_product", "get_signing_policy", "ImageSpec", "maaslog"]
 
 from collections import namedtuple
 import functools
 
-from provisioningserver.logger import get_maas_logger
 from simplestreams.util import policy_read_signed
 
+from provisioningserver.logger import get_maas_logger
+
 # A tuple of the items that together select a boot image.
-ImageSpec = namedtuple('ImageSpec', [
-    'os',
-    'arch',
-    'subarch',
-    'kflavor',
-    'release',
-    'label',
-    ])
+ImageSpec = namedtuple(
+    "ImageSpec", ["os", "arch", "subarch", "kflavor", "release", "label"]
+)
 
 
 def get_signing_policy(path, keyring=None):
@@ -37,11 +28,14 @@ def get_signing_policy(path, keyring=None):
         correctly, returns the content.  The keyring defaults to the one you
         pass.
     """
-    if path.endswith('.json'):
+    if path.endswith(".json"):
         # The configuration deliberately selected an un-signed index.  A signed
         # index would have a suffix of '.sjson'.  Use a policy that doesn't
         # check anything.
-        policy = lambda content, path, keyring: content
+
+        def policy(content, path, keyring):
+            return content
+
     else:
         # Otherwise: use default Simplestreams policy for verifying signatures.
         policy = policy_read_signed
@@ -62,7 +56,7 @@ def get_os_from_product(item):
     was added to the product mapping, only Ubuntu was supported.
     """
     try:
-        return item['os']
+        return item["os"]
     except KeyError:
         return "ubuntu"
 
